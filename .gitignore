@@ -1,0 +1,45 @@
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### Zephyr ###
+.venv/
+.west/
+modules/
+zephyr-src/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### Git hooks ###
+.pre-commit-config.yaml
+
+## Cpp Check
+bsp/cppcheck/html-report/
+bsp/cppcheck/compile_commands.json
+bsp/cppcheck/report.xml
+bsp/cppcheck/application.out

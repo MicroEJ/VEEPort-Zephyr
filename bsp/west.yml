@@ -1,0 +1,35 @@
+# Copyright 2025 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+manifest:
+  version: "1.0"
+
+  defaults:
+    remote: github
+
+  remotes:
+    - name: github
+      url-base: https://github.com/zephyrproject-rtos
+
+  group-filter: [+optional]
+
+  projects:
+    # Version 4.1
+    - name: zephyr
+      # Change the revision to be able to change version
+      revision: 7823374e872145b5bd018bfe447839eb36042611
+      path: zephyr-src
+
+      import:
+        path-prefix: bsp
+        # Place the module you need in this section
+        name-allowlist:
+          - cmsis
+          - cmsis-dsp
+          - cmsis-nn
+          - hal_nordic
+          - hal_nxp
+          - fatfs
+          - littlefs
+          - segger
+          - tflite-micro

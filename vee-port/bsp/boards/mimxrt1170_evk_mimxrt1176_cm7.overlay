@@ -1,0 +1,26 @@
+// Copyright 2025 MicroEJ Corp. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be found with this software.
+
+/ {
+	fstab {
+		compatible = "zephyr,fstab";
+		ffs1: ffs1 {
+			compatible = "zephyr,fstab,fatfs";
+			disk-access;
+			mount-point = "/RAM:";
+		};
+	};
+
+	ramdisk0 {
+		compatible = "zephyr,ram-disk";
+		disk-name = "RAM";
+		sector-size = <512>;
+		sector-count = <128>;
+	};
+};
+
+&enet1g_mac {
+	 /delete-property/ zephyr,random-mac-address;
+	// local-mac-address = [<Your Mac address>];
+	nxp,unique-mac;
+};

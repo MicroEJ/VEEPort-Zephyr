@@ -1,0 +1,35 @@
+# Copyright 2024-2025 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+[versions]
+microej-sdk = "1.4.0"
+
+[libraries]
+# APIs
+api-bon =               { group = "ej.api", name = "bon", version = "1.4.3" }
+api-device =            { group = "ej.api", name = "device", version = "1.2.0" }
+api-edc =               { group = "ej.api", name = "edc", version = "1.3.7" }
+api-event =             { group = "ej.api", name = "event", version = "2.1.0" }
+api-fs =                { group = "ej.api", name = "fs", version = "2.1.1" }
+api-net =               { group = "ej.api", name = "net", version = "1.1.4" }
+
+# Architecture
+architecture = { group = "com.microej.architecture.CM7.CM7hardfp_GCC48", name = "flopi7G26", version = "8.3.0" }
+
+# Packs are fetched from bsp/vee/gradle/libs.versions.toml
+#pack-xxx =             { group = "com.microej.pack.xxx", name = "xxx-pack", version = "x.y.z" }
+
+# Libraries
+frontpanel-framework =  { group = "ej.tool.frontpanel", name = "framework", version = "1.1.0" }
+
+# Test Libraries
+junit =             { group = "ej.library.test", name = "junit", version = "1.10.3" }
+junit-platform =    { group = "org.junit.platform", name = "junit-platform-launcher", version = "1.8.2" }
+jenkins =           { group = "com.microej.deploy", name = "jenkins", version = "1.1.1"}
+
+# Testsuites
+testsuite-event =               { group = "com.microej.pack.event", name = "event-testsuite", version = "2.1.0" }
+testsuite-fs =                  { group = "com.microej.pack.fs", name = "fs-testsuite", version = "3.0.8" }
+testsuite-fs-openjdk =          { group = "com.microej.pack.fs", name = "fs-testsuite-openjdk", version = "1.0.1" }
+testsuite-net =                 { group = "com.microej.pack.net", name = "net-1_1-testsuite", version = "4.1.1" }
+testsuite-net-openjdk =         { group = "com.microej.pack.net", name = "net-1_1-testsuite-openjdk", version = "1.1.1" }

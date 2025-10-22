@@ -1,0 +1,4 @@
+[submodule "zephyr-bsp"]
+	path = bsp/vee
+	url = https://github.com/MicroEJ/AbstractionLayer-Zephyr.git
+	branch = master
