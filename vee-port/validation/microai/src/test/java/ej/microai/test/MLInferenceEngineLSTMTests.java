@@ -1,7 +1,7 @@
 /*
  * Java
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 package ej.microai.test;
@@ -26,14 +26,15 @@ import static org.junit.Assert.fail;
 public class MLInferenceEngineLSTMTests {
 
     private static final String MNIST_LSTM_MODEL = "/model/trained_lstm_int8.tflite";
-    private static final int MEMORY_POOL = 6000;
+    private static final String MEMORY_POOL_DEFAULT_SIZE = "6000";
+    private static final int MEMORY_POOL_SIZE = new Integer(System.getProperty("microai.memory.pool.size", MEMORY_POOL_DEFAULT_SIZE));
     private static MLInferenceEngine mlInferenceEngine;
     private static InputTensor inputTensor;
     private static OutputTensor outputTensor;
 
     @BeforeClass
     public static void beforeTest() {
-        mlInferenceEngine = new MLInferenceEngine(MNIST_LSTM_MODEL, MEMORY_POOL);
+        mlInferenceEngine = new MLInferenceEngine(MNIST_LSTM_MODEL, MEMORY_POOL_SIZE);
         inputTensor = mlInferenceEngine.getInputTensor(0);
         outputTensor = mlInferenceEngine.getOutputTensor(0);
     }

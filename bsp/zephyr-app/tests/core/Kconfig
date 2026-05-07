@@ -1,0 +1,30 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+menu "Zephyr"
+source "Kconfig.zephyr"
+endmenu
+
+config MICROEJ_VALIDATION
+	bool "Build Validation Utilities"
+	default y
+
+config MICROEJ_VALIDATION_RUNTIME
+	bool "Build runtime tests"
+	default y
+
+config MICROEJ_VALIDATION_LLKERNEL
+	bool "Build llkernel tests"
+	default n
+
+config MICROEJ_VALIDATION_RAM_CHECK_BUFFER_SIZE
+	int "Size of the buffer used for RAM tests in KB"
+	default 150
+
+config MICROEJ_VALIDATION_COREMARK_ITERATIONS
+	int "Total iterations for the Coremark test"
+	default 5000
+	
+config MICROEJ_VALIDATION_COREMARK_FLAGS_STR
+	string "Compiler flag for optimizations"
+	default "-O2"

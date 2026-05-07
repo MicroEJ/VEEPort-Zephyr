@@ -1,0 +1,102 @@
+// Copyright 2025-2026 MicroEJ Corp. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be found with this software.
+
+&pinctrl {
+	uart22_default: uart22_default {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 1, 8)>;
+		};
+		group2 {
+			psels = <NRF_PSEL(UART_RX, 1, 9)>;
+			bias-pull-up;
+		};
+	};
+
+	uart22_sleep: uart22_sleep {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 1, 8)>,
+				<NRF_PSEL(UART_RX, 1, 9)>;
+			low-power-enable;
+		};
+	};
+
+	uart21_default: uart21_default {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 1, 10)>;
+		};
+		group2 {
+			psels = <NRF_PSEL(UART_RX, 1, 11)>;
+			bias-pull-up;
+		};
+	};
+
+	uart21_sleep: uart21_sleep {
+		group1 {
+			psels = <NRF_PSEL(UART_TX, 1, 10)>,
+				<NRF_PSEL(UART_RX, 1, 11)>;
+			low-power-enable;
+		};
+	};
+};
+
+/ {
+	aliases {
+		microej-serial0 = &uart22;
+		microej-serial1 = &uart21;
+	};
+};
+
+&timer21 {
+	status = "reserved";
+};
+
+&timer22 {
+	status = "reserved";
+};
+
+&uart22 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart22_default>;
+	pinctrl-1 = <&uart22_sleep>;
+	pinctrl-names = "default", "sleep";
+	hw-flow-control;
+	timer = <&timer22>;
+	zephyr,pm-device-runtime-auto;
+};
+
+&uart21 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart21_default>;
+	pinctrl-1 = <&uart21_sleep>;
+	pinctrl-names = "default", "sleep";
+	hw-flow-control;
+	timer = <&timer21>;
+	zephyr,pm-device-runtime-auto;
+};
+
+/* Increase storage_partition to 128kB to pass the test suite */
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &storage_partition;
+
+&cpuapp_rram {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		slot0_partition: parition@10000 {
+			reg = <0x00010000 DT_SIZE_K(300)>;
+		};
+		slot1_partition: partition@5b000 {
+			reg = <0x0005b000 DT_SIZE_K(300)>;
+		};
+
+		storage_partition: partition@a6000 {
+			label = "storage";
+			reg = <0x000a6000 DT_SIZE_K(128)>;
+		};
+	};
+};

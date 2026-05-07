@@ -1,7 +1,7 @@
 /*
  * Kotlin
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 
@@ -116,6 +116,9 @@ testing {
 
                             // Excluding this test because it requires a too big Java and immortal heaps.
                             excludeTestsMatching("*TestNetOpenjdkBrokenPipe*")
+
+                            // No activity on input stream
+                            excludeTestsMatching("*TestSocketConcurrent*")
                         }
                     }
                 }

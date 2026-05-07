@@ -2,17 +2,17 @@
 #
 # BASH
 #
-# Copyright 2025 MicroEJ Corp. All rights reserved.
+# Copyright 2025-2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
 
 # remove any zephyr source and artifacts
 FOLDERS=(
   ".venv"
-  ".west"
-  "bsp/zephyr-src"
+  "bsp/.west"
+  "bsp/zephyr"
   "bsp/modules"
   "bsp/optional"
-  "bsp/vee/build"
+  "bsp/zephyr-app/main/build"
 )
 
 for F in "${FOLDERS[@]}"; do

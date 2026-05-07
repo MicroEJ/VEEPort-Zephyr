@@ -1,0 +1,57 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+
+config MICROEJ_SECURITY
+	bool "Build Security Abstraction Layer"
+	default y
+
+if MICROEJ_SECURITY
+config MBEDTLS
+	default y
+config MBEDTLS_RSA_C
+	default y
+config MBEDTLS_PKCS1_V15
+	default y
+config MBEDTLS_PKCS1_V21
+	default y
+config MBEDTLS_GENPRIME_ENABLED
+	default y
+config MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
+	default y
+config MBEDTLS_KEY_EXCHANGE_RSA_PSK_ENABLED
+	default y
+config MBEDTLS_ECDSA_C
+	default y
+config MBEDTLS_ECP_C
+	default y
+config MBEDTLS_ECP_ALL_ENABLED
+	default y
+config MBEDTLS_CIPHER_AES_ENABLED
+	default y
+config MBEDTLS_CIPHER_DES_ENABLED
+	default y
+config MBEDTLS_CIPHER_GCM_ENABLED
+	default y
+config MBEDTLS_HASH_ALL_ENABLED
+	default y
+config MBEDTLS_PEM_CERTIFICATE_FORMAT
+	default y
+config MBEDTLS_ENTROPY_C
+	default y
+config MBEDTLS_PK_WRITE_C
+	default y
+config MBEDTLS_HAVE_TIME_DATE
+	default y
+config MBEDTLS_PKCS5_C
+	default y
+config MBEDTLS_X509_CSR_WRITE_C
+	default y
+config MBEDTLS_X509_CRT_WRITE_C
+	default y
+config MBEDTLS_DEBUG
+	default y
+config LLSEC_WORKER_PRIORITY
+	int
+	default 4
+endif

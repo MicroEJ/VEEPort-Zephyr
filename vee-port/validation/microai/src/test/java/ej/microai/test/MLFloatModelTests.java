@@ -1,7 +1,7 @@
 /*
  * Java
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 package ej.microai.test;
@@ -18,7 +18,8 @@ import static org.junit.Assert.assertTrue;
 
 public class MLFloatModelTests {
     private static final String FLOAT_MODEL = "/model/sine_model_float.tflite";
-    private static final int MEMORY_POOL = 2048;
+    private static final String MEMORY_POOL_DEFAULT_SIZE = "2048";
+    private static final int MEMORY_POOL_SIZE = new Integer(System.getProperty("microai.memory.pool.size", MEMORY_POOL_DEFAULT_SIZE));
     private static final float SINUS_TOLERANCE = 0.05f;
     private static final float TEST_INPUT_1 = (float) (Math.PI / 2);
     private static final float TEST_OUTPUT_1 = 1;
@@ -29,7 +30,7 @@ public class MLFloatModelTests {
 
     @BeforeClass
     public static void beforeClass() {
-        mlInferenceEngine = new MLInferenceEngine(FLOAT_MODEL, MEMORY_POOL);
+        mlInferenceEngine = new MLInferenceEngine(FLOAT_MODEL, MEMORY_POOL_SIZE);
         inputTensor = mlInferenceEngine.getInputTensor(0);
         outputTensor = mlInferenceEngine.getOutputTensor(0);
     }

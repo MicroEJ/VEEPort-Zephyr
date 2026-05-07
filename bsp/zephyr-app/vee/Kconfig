@@ -1,0 +1,33 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+menu "VEE Abstraction Layer Configuration"
+
+rsource "./port/*/Kconfig"
+
+menu "Debug and Diagnostics"
+
+config MICROEJ_DEBUG_MODE
+	bool "Activate Debug Information"
+	default y
+	help
+		Enables debug information and increases image size.
+
+endmenu
+
+if MICROEJ_DEBUG_MODE
+config ASSERT
+	default y
+config BOOT_BANNER
+	default y
+config DEBUG
+	default y
+config THREAD_NAME
+	default y
+endif
+
+config VEE_LIB_LINK
+	bool "Link with vee/lib"
+	default y
+
+endmenu

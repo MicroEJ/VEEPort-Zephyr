@@ -1,0 +1,64 @@
+# Copyright 2025-2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+manifest:
+  version: "1.0"
+
+  defaults:
+    remote: github
+
+  remotes:
+    - name: github
+      url-base: https://github.com/zephyrproject-rtos
+    - name: eembc
+      url-base: https://github.com/eembc
+
+  group-filter: [+optional]
+
+  projects:
+    - name: zephyr
+      revision: v4.3.0
+      west-commands: scripts/west-commands.yml
+
+    # Modules declared explicitly with revisions from Zephyr v4.3.0's manifest.
+    # Revisions come from bsp/zephyr/west.yml and bsp/zephyr/submanifests/optional.yaml.
+    # Needed to package bsp folder inside the VEE Port module that excludes .git/ folders 
+    # containing manifest-rev file when using import west manifest feature.
+    - name: cmsis
+      path: modules/hal/cmsis
+      revision: 512cc7e895e8491696b61f7ba8066b4a182569b8
+    - name: cmsis-dsp
+      path: modules/lib/cmsis-dsp
+      revision: 97512610ec92058f0119450b9e743eeb7e95b5c8
+    - name: cmsis-nn
+      path: modules/lib/cmsis-nn
+      revision: e9328d612ea3ea7d0d210d3ac16ea8667c01abdd
+    - name: cmsis_6
+      path: modules/hal/cmsis_6
+      revision: 30a859f44ef8ab4dc8f84b03ed586fd16ccf9d74
+    - name: hal_nordic
+      path: modules/hal/nordic
+      revision: 7858281d843468fe53c829995fb63f45a227387a
+    - name: hal_nxp
+      path: modules/hal/nxp
+      revision: 6d6ab91d5cc71c872353af1957d19f3d930df0fd
+    - name: fatfs
+      path: modules/fs/fatfs
+      revision: f4ead3bf4a6dab3a07d7b5f5315795c073db568d
+    - name: littlefs
+      path: modules/fs/littlefs
+      revision: 8f5ca347843363882619d8f96c00d8dbd88a8e79
+    - name: mbedtls
+      path: modules/crypto/mbedtls
+      revision: c5b06d89c9c498d8fc8659ce31f7e53137b6270f
+    - name: segger
+      path: modules/debug/segger
+      revision: 9f08435a79d41133d7046b7c59d1b25929eda450
+    - name: tflite-micro
+      path: optional/modules/lib/tflite-micro
+      revision: 8d404de73acf7687831e16d88e86e4f73cfddf8e
+      groups:
+        - optional
+
+  self:
+    path: bsp/zephyr-app

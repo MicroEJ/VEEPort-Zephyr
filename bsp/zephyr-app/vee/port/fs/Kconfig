@@ -1,0 +1,78 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+
+config MICROEJ_FS
+	bool "Build File System Abstraction Layer"
+	default y
+
+if MICROEJ_FS
+
+choice
+	prompt "Filesystem backend"
+	default MICROEJ_FS_BACKEND_FATFS
+	help
+		Select FS backend library.
+
+config MICROEJ_FS_BACKEND_FATFS
+	bool "fatfs"
+
+config MICROEJ_FS_BACKEND_LITTLEFS
+	bool "littlefs"
+endchoice
+
+config MICROEJ_FS_MNT_POINT
+	string "Filesystem mount point"
+	default "/NAND:"
+	help
+	  Filesystem mount point, examples:
+		LITTLEFS: "/lfs"
+		FLASH:    "/NAND:"
+		SDMMC:    "/SD:"
+		RAM:      "/RAM:"
+
+config FILE_SYSTEM_MKFS
+	default y
+
+if MICROEJ_FS_BACKEND_FATFS
+config FAT_FILESYSTEM_ELM
+	default y
+config FS_FATFS_LFN
+	default y
+endif
+
+if MICROEJ_FS_BACKEND_LITTLEFS
+config FILE_SYSTEM_LITTLEFS
+	default y
+config FLASH
+	default y
+config FLASH_MAP
+	default y
+endif
+
+config MICROEJ_FS_WORKER_JOB_COUNT
+	int "Number of workers dedicated to the FS in async_worker."
+	default 4
+
+config MICROEJ_FS_WAITING_LIST_SIZE
+	int "Size of the waiting list for FS jobs in async_worker."
+	default 16
+
+config MICROEJ_FS_WORKER_STACK_SIZE
+	int "Size of the FS worker stack in bytes."
+	default 4096
+
+config MICROEJ_FS_WORKER_PRIORITY
+	int "Priority of the FS workers."
+	default 6
+
+config MICROEJ_FS_IO_BUFFER_SIZE
+	int "Size of the IO buffer in bytes used to read/write operations."
+	default 2048
+
+config MICROEJ_FS_PATH_LENGTH
+	int "Maximum file path length in characters."
+	default 256
+
+
+endif # MICROEJ_FS

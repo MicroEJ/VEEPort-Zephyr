@@ -1,4 +1,4 @@
-[submodule "zephyr-bsp"]
-	path = bsp/vee
-	url = https://github.com/MicroEJ/AbstractionLayer-Zephyr.git
-	branch = master
+[submodule "bsp/zephyr-app/vee/thirdparty/coremark"]
+	path = bsp/zephyr-app/vee/thirdparty/coremark
+	url = https://github.com/eembc/coremark.git
+	branch = main

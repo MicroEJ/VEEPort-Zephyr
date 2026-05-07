@@ -1,0 +1,19 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+patches:
+  - path: zephyr/add-uart-timer-nrf.patch
+    sha256sum: 21b1a8aa4c56951253bc90a643ea0acf6c8a3565be8bb82fb08421cce2cf909c
+    module: zephyr
+    author: nordic-krch
+    email: nordic-krch@github.com
+    date: 2025-11-14
+    comments: |
+      Add NRF UART timer to fix RX errors: https://github.com/zephyrproject-rtos/zephyr/pull/92767
+  - path: zephyr/fix-lpuart-configure.patch
+    sha256sum: 2094c77693ea37e2d51d92a888ac8a6eca7a12d11c82ae95334a0e4b8cc51d2f
+    module: zephyr
+    author: MicroEJ
+    email: support@microej.com
+    date: 2026-04-10
+    comments: |
+      Fix lpuart configure method (check that the configuration is valid before disable lpuart)

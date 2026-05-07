@@ -1,7 +1,7 @@
 /*
  * Kotlin
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 import com.microej.gradle.plugins.TestMode
@@ -33,7 +33,7 @@ testing {
                 implementation(libs.junit.platform)
                 implementation(libs.api.bon)
 
-                implementation(libsOverride.api.microai)
+                implementation(libs.api.microai)
             }
 
             targets {

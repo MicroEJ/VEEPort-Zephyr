@@ -1,0 +1,21 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+
+config MICROEJ_SSL
+	bool "Build SSL Abstraction Layer"
+	depends on MICROEJ_NET
+	default y
+
+if MICROEJ_SSL
+config MBEDTLS_SSL_MAX_CONTENT_LEN
+	default 16384
+config MBEDTLS_SSL_PROTO_TLS1_2
+	default y
+config MBEDTLS_ECJPAKE_C
+	default y
+config MBEDTLS_ECDH_C
+	default y
+config MBEDTLS_KEY_EXCHANGE_ALL_ENABLED
+	default y
+endif

@@ -1,0 +1,257 @@
+The software contained in this package is licensed under the terms and conditions described in the `LICENSE.txt` file,
+except for the following files that are licensed under their own terms:
+
+----------------------------------------------------------------------
+   Embunit
+----------------------------------------------------------------------
+
+Location: bsp/vee/thirdparty/embunit/
+License: MIT
+
+Copyright (c) <YYYY> Embedded Unit Project
+
+The full license text is available at:
+bsp/vee/thirdparty/embunit/LICENSE
+
+----------------------------------------------------------------------
+   Coremark
+----------------------------------------------------------------------
+
+Location: bsp/vee/thirdparty/coremark/
+License: COREMARK® ACCEPTABLE USE AGREEMENT and Apache-2.0
+
+Copyright © <YYYY> EEMBC All rights reserved. CoreMark is a trademark of EEMBC and EEMBC is a registered trademark of the Embedded Microprocessor Benchmark Consortium.
+
+The full license text is available at:
+bsp/vee/thirdparty/coremark/LICENSE.md
+
+----------------------------------------------------------------------
+   Zephyr
+----------------------------------------------------------------------
+
+Location: bsp/zephyr-src
+License: Apache-2.0
+
+The full license text is available at:
+bsp/zephyr-src/LICENSE
+
+----------------------------------------------------------------------
+   Mbed-TLS
+----------------------------------------------------------------------
+
+Location: bsp/modules/crypto/mbedtls
+License: Apache-2.0 or GPL-2.0-or-later
+
+Copyright The Mbed TLS Contributors
+SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+
+The full license text is available at:
+bsp/modules/crypto/mbedtls/LICENSE
+
+----------------------------------------------------------------------
+   Segger
+----------------------------------------------------------------------
+
+Location: bsp/modules/debug/segger
+License: BSD-style license
+
+/*********************************************************************
+*                    SEGGER Microcontroller GmbH                     *
+*                        The Embedded Experts                        *
+**********************************************************************
+*                                                                    *
+*  (c) <beginYYYY> - <LastModifYYYY> SEGGER Microcontroller GmbH     *
+*                                                                    *
+*       www.segger.com     Support: support@segger.com               *
+*                                                                    *
+**********************************************************************
+*                                                                    *
+*       SEGGER SystemView * Real-time application analysis           *
+*                                                                    *
+**********************************************************************
+*                                                                    *
+* All rights reserved.                                               *
+*                                                                    *
+* SEGGER strongly recommends to not make any changes                 *
+* to or modify the source code of this software in order to stay     *
+* compatible with the SystemView and RTT protocol, and J-Link.       *
+*                                                                    *
+* Redistribution and use in source and binary forms, with or         *
+* without modification, are permitted provided that the following    *
+* condition is met:                                                  *
+*                                                                    *
+* o Redistributions of source code must retain the above copyright   *
+*   notice, this condition and the following disclaimer.             *
+*                                                                    *
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND             *
+* CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,        *
+* INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF           *
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE           *
+* DISCLAIMED. IN NO EVENT SHALL SEGGER Microcontroller BE LIABLE FOR *
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR           *
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT  *
+* OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;    *
+* OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF      *
+* LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT          *
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE  *
+* USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH   *
+* DAMAGE.                                                            *
+*                                                                    *
+**********************************************************************
+
+----------------------------------------------------------------------
+   FatFs
+----------------------------------------------------------------------
+
+Location: bsp/modules/fs/fatfs
+License: BSD-style license
+
+/*
+/ Copyright (C) <YYYY>, ChaN, all right reserved.
+/
+/ FatFs module is an open source software. Redistribution and use of FatFs in
+/ source and binary forms, with or without modification, are permitted provided
+/ that the following condition is met:
+/
+/ 1. Redistributions of source code must retain the above copyright notice,
+/    this condition and the following disclaimer.
+/
+/ This software is provided by the copyright holder and contributors "AS IS"
+/ and any warranties related to this software are DISCLAIMED.
+/ The copyright owner or contributors be NOT LIABLE for any damages caused
+/ by use of this software.
+*/
+
+----------------------------------------------------------------------
+   LittleFs
+----------------------------------------------------------------------
+
+Location: bsp/modules/fs/littlefs
+License: BSD-3-Clause
+
+Copyright (c) <YYYY>, The littlefs authors.
+Copyright (c) <YYYY>, Arm Limited. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause
+
+The full license text is available at:
+bsp/modules/fs/littlefs/LICENSE.md
+
+----------------------------------------------------------------------
+   CMSIS (Core, CMSIS-6, DSP, NN)
+----------------------------------------------------------------------
+
+Locations: 
+   - bsp/modules/hal/cmsis
+   - bsp/modules/hal/cmsis_6
+   - bsp/modules/lib/cmsis-dsp
+   - bsp/modules/lib/cmsis-nn
+License: Apache-2.0
+
+Copyrights:
+
+- Copyright (c) <beginYYYY>-<LastModifYYYY> Arm Limited. All rights reserved.
+- Copyright <beginYYYY>-<LastModifYYYY> Arm Limited and/or its affiliates <open-source-office@arm.com>
+- Copyright (C) <beginYYYY>-<LastModifYYYY> ARM Limited or its affiliates. All rights reserved.
+
+The full license text is available at:
+bsp/modules/hal/cmsis/LICENSE.txt
+
+----------------------------------------------------------------------
+   Nordic HAL
+----------------------------------------------------------------------
+
+Location: bsp/modules/hal/nordic
+License: LicenseRef-Nordic-5-Clause
+
+Copyright <YYYY>, Nordic Semiconductor ASA
+SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form, except as embedded into a Nordic
+   Semiconductor ASA integrated circuit in a product or a software update for
+   such product, must reproduce the above copyright notice, this list of
+   conditions and the following disclaimer in the documentation and/or other
+   materials provided with the distribution.
+
+3. Neither the name of Nordic Semiconductor ASA nor the names of its
+   contributors may be used to endorse or promote products derived from this
+   software without specific prior written permission.
+
+4. This software, with or without modification, must only be used with a
+   Nordic Semiconductor ASA integrated circuit.
+
+5. Any software provided in binary form under this license must not be reverse
+   engineered, decompiled, modified and/or disassembled.
+
+THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS
+OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+----------------------------------------------------------------------
+   NXP HAL
+----------------------------------------------------------------------
+
+Location: bsp/modules/hal/nxp
+License: BSD-3-Clause
+
+Copyright <beginYYYY>-<LastModifYYYY> NXP
+
+The BSD 3 Clause License
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+----------------------------------------------------------------------
+   TensorFlow Lite for Microcontrollers
+----------------------------------------------------------------------
+
+Location: bsp/optional/modules/lib/tflite-micro
+License: Apache-2.0
+
+Copyright <YYYY> The TensorFlow Authors. All Rights Reserved.
+
+The full license text is available at:
+bsp/optional/modules/lib/tflite-micro/LICENSE

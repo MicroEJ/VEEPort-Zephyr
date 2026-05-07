@@ -1,0 +1,65 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+
+config MICROEJ_BLUETOOTH
+	bool "Build Bluetooth Abstraction Layer"
+	default y
+	select MICROEJ_BT_SSL_SECURITY_ERROR if MICROEJ_SSL || MICROEJ_SECURITY
+
+config MICROEJ_BT_SSL_SECURITY_ERROR
+	bool "Bluetooth cannot be enabled together with MICROEJ_SSL or MICROEJ_SECURITY"
+	default n
+
+if MICROEJ_BLUETOOTH && !MICROEJ_BT_SSL_SECURITY_ERROR
+config BT
+	default y
+config BT_PERIPHERAL
+	default y
+config BT_GATT_CLIENT
+	default y
+config BT_GATT_DYNAMIC_DB
+	default y
+config BT_GATT_ENFORCE_SUBSCRIPTION
+	default n
+config BT_SMP
+	default y
+config BT_SMP_APP_PAIRING_ACCEPT
+	default y
+config BT_PRIVACY
+	default y
+config BT_SIGNING
+	default y
+config BT_KEYS_OVERWRITE_OLDEST
+	default y
+config BT_SETTINGS
+	default y
+config BT_DEVICE_NAME
+	default "Zephyr BLE"
+config BT_DEVICE_NAME_DYNAMIC
+	default y
+config BT_MAX_CONN
+	default 4
+config BT_MAX_PAIRED
+	default 4
+config BT_RX_STACK_SIZE
+	default 8192
+config BT_CTS_HELPER_API
+	default y
+config BT_ATT_PREPARE_COUNT
+	default 5
+config BT_L2CAP_TX_MTU
+	default 517
+config BT_BUF_ACL_RX_SIZE
+	default 521
+config BT_BUF_ACL_TX_SIZE
+	default 521
+config FLASH
+	default y
+config FLASH_MAP
+	default y
+config NVS
+	default y
+config SETTINGS
+	default y
+endif

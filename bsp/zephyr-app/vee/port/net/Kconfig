@@ -1,0 +1,65 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+
+config MICROEJ_NET
+	bool "Build Network Abstraction Layer"
+	default y
+
+if MICROEJ_NET
+config MICROEJ_ASYNC_SELECT_TASK_PRIORITY
+	int
+	default 3
+
+config NETWORKING
+	default y
+config NET_IPV6
+	default n
+config NET_DRIVERS
+	default y
+config NET_LOOPBACK
+	default y
+config NET_HOSTNAME
+	default "localhost"
+config NET_IPV4
+	default y
+config NET_IF_MAX_IPV4_COUNT
+	default 8
+config NET_IPV4_IGMP
+	default y
+config NET_TCP
+	default y
+config NET_TCP_MAX_SEND_WINDOW_SIZE
+	default 2048
+config NET_TCP_MAX_RECV_WINDOW_SIZE
+	default 2048
+config NET_TCP_KEEPALIVE
+	default y
+config NET_MAX_CONN
+	default 32
+config NET_MAX_CONTEXTS
+	default 32
+config NET_CONTEXT_RCVBUF
+	default y
+config NET_CONTEXT_SNDBUF
+	default y
+choice NET_DEFAULT_IF
+	default NET_DEFAULT_IF_ETHERNET
+endchoice
+config NET_LOG
+	default y
+config NET_SOCKETS_POLL_MAX
+	default 8
+config NET_SOCKETS_NET_MGMT
+	default y
+config NET_DHCPV4
+	default y
+config NET_DHCPV4_OPTION_CALLBACKS
+	default y
+config NET_CONNECTION_MANAGER
+	default y
+config NET_L2_ETHERNET
+	default y
+config NET_MGMT_EVENT_STACK_SIZE
+	default 1000
+endif

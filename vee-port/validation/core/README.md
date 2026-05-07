@@ -15,19 +15,19 @@ Tests can be launched:
 ## Requirements
 
 - A VEE Port built from an Architecture version `7.0.0` or higher.
-- See VEE Port Test Suites [documentation](../../../../Tool-Project-Template-VEEPort/vee-port/validation/README.md).
+- See VEE Port Test Suites [documentation](../README.md).
 
 ## Usage
 
 ### Launcher Mode
 
-- Add the [core_test_natives.c](../../../../Tool-Project-Template-VEEPort/vee-port/validation/core/src/test/c/src/core_test_natives.c) file in your BSP and add it as a source file. These natives allow to test the FPU configuration and SNI native calling convention.
+- Add the [core_test_natives.c](src/test/c/src/core_test_natives.c) file in your BSP and add it as a source file. These natives allow to test the FPU configuration and SNI native calling convention.
 - For a best result in the Java Round Robin test, disable all the C native tasks except the MicroEJ task.
-- Follow the configuration and execution steps described in VEE Port Test Suites [documentation](../../../../Tool-Project-Template-VEEPort/vee-port/validation/README.md).
+- Follow the configuration and execution steps described in VEE Port Test Suites [documentation](../README.md).
 
 ### VEE Port Test Suite Mode
 
--  Follow the configuration and execution steps described in VEE Port Test Suites [documentation](../../../../Tool-Project-Template-VEEPort/vee-port/validation/README.md).
+-  Follow the configuration and execution steps described in VEE Port Test Suites [documentation](../README.md).
 
 ## Dependencies
 
@@ -49,7 +49,7 @@ Solution:
 
 ### VEE Port Test Suite issues
 
-See VEE Port Test Suites [documentation](../../../../Tool-Project-Template-VEEPort/vee-port/validation/README.md).
+See VEE Port Test Suites [documentation](../README.md).
 
 ## Source
 
@@ -61,5 +61,5 @@ None.
 
 ---
 _Markdown_  
-_Copyright 2025 MicroEJ Corp. All rights reserved._  
+_Copyright 2025-2026 MicroEJ Corp. All rights reserved._  
 _Use of this source code is governed by a BSD-style license that can be found with this software._

@@ -1,7 +1,7 @@
 /*
  * Java
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 package ej.microai.test;
@@ -19,7 +19,8 @@ import static org.junit.Assert.assertEquals;
 
 public class MLByteModelTests {
     private static final String BYTE_MODEL = "/model/mean_model_int8.tflite";
-    private static final int MEMORY_POOL = 2048;
+    private static final String MEMORY_POOL_DEFAULT_SIZE = "2048";
+    private static final int MEMORY_POOL_SIZE = new Integer(System.getProperty("microai.memory.pool.size", MEMORY_POOL_DEFAULT_SIZE));
     private static final byte[] TEST_INPUT = new byte[] {10, 20, 30, 40, 50};
     private static final byte TEST_OUTPUT = 30;
 
@@ -29,7 +30,7 @@ public class MLByteModelTests {
 
     @BeforeClass
     public static void beforeClass() {
-        mlInferenceEngine = new MLInferenceEngine(BYTE_MODEL, MEMORY_POOL);
+        mlInferenceEngine = new MLInferenceEngine(BYTE_MODEL, MEMORY_POOL_SIZE);
         inputTensor = mlInferenceEngine.getInputTensor(0);
         outputTensor = mlInferenceEngine.getOutputTensor(0);
     }

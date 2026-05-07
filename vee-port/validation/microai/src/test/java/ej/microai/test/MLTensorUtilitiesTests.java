@@ -1,7 +1,7 @@
 /*
  * Java
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 package ej.microai.test;
@@ -23,7 +23,8 @@ import static org.junit.Assert.assertTrue;
 
 public class MLTensorUtilitiesTests {
     private static final String TEST_MODEL = "/model/sine_model_int8_input_float_output.tflite";
-    private static final int MEMORY_POOL = 2048;
+    private static final String MEMORY_POOL_DEFAULT_SIZE = "2048";
+    private static final int MEMORY_POOL_SIZE = new Integer(System.getProperty("microai.memory.pool.size", MEMORY_POOL_DEFAULT_SIZE));
 
     /*
      * sine_model_int8_input_float_output.tflite input/output tensor information.
@@ -51,7 +52,7 @@ public class MLTensorUtilitiesTests {
 
     @BeforeClass
     public static void beforeClass() {
-        mlInferenceEngine = new MLInferenceEngine(TEST_MODEL, MEMORY_POOL);
+        mlInferenceEngine = new MLInferenceEngine(TEST_MODEL, MEMORY_POOL_SIZE);
         inputTensor = mlInferenceEngine.getInputTensor(0);
         outputTensor = mlInferenceEngine.getOutputTensor(0);
     }

@@ -1,7 +1,7 @@
 /*
  * Java
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 package ej.microai.test;
@@ -23,7 +23,8 @@ import static org.junit.Assert.fail;
 public class MLInferenceEngineTests {
 
     private static final String TEST_MODEL = "/model/sine_model_float.tflite";
-    private static final int MEMORY_POOL = 2048;
+    private static final String MEMORY_POOL_DEFAULT_SIZE = "2048";
+    private static final int MEMORY_POOL_SIZE = new Integer(System.getProperty("microai.memory.pool.size", MEMORY_POOL_DEFAULT_SIZE));
     private static final float SINUS_TOLERANCE = 0.05f;
 
     private static final float TEST_INPUT_1 = (float) (Math.PI / 2);
@@ -35,7 +36,7 @@ public class MLInferenceEngineTests {
      */
     @Test
     public void testCreateModelFromResources() {
-        try(MLInferenceEngine mlInferenceEngine = new MLInferenceEngine(TEST_MODEL, MEMORY_POOL)) {
+        try(MLInferenceEngine mlInferenceEngine = new MLInferenceEngine(TEST_MODEL, MEMORY_POOL_SIZE)) {
             testInference(mlInferenceEngine);
         }
     }
@@ -56,7 +57,7 @@ public class MLInferenceEngineTests {
 
             ByteArrayInputStream is = new ByteArrayInputStream(byteArray);
 
-            MLInferenceEngine mlInferenceEngine = new MLInferenceEngine(is, MEMORY_POOL);
+            MLInferenceEngine mlInferenceEngine = new MLInferenceEngine(is, MEMORY_POOL_SIZE);
 
             is.close();
 

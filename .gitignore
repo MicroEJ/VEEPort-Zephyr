@@ -6,9 +6,10 @@ build/
 
 ### Zephyr ###
 .venv/
-.west/
-modules/
-zephyr-src/
+bsp/.west/
+bsp/modules/
+bsp/optional/
+bsp/zephyr/
 
 ### IntelliJ IDEA ###
 .idea/
@@ -42,4 +43,9 @@ bin/
 bsp/cppcheck/html-report/
 bsp/cppcheck/compile_commands.json
 bsp/cppcheck/report.xml
-bsp/cppcheck/application.out
+bsp/cppcheck/unverified.txt
+
+### BSP ###
+bsp/zephyr-app/vee/build/
+bsp/zephyr-app/vee/inc/
+bsp/zephyr-app/vee/lib/

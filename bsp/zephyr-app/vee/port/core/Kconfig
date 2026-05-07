@@ -1,0 +1,27 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+
+
+config MICROEJ_CORE
+	bool "Build Core Abstraction Layer"
+	default y
+
+if MICROEJ_CORE
+
+choice MICROEJ_CORE_TIME
+	bool "Time configuration implementation"
+	default MICROEJ_CORE_TIME_USE_NATIVE_ZEPHYR
+	help
+		Select how LLMJVM_IMPL_setApplicationTime gets/sets the application time.
+		The application time is the difference, measured in milliseconds,
+		between the current time and midnight, January 1, 1970 UTC.
+
+config MICROEJ_CORE_TIME_USE_MICROEJ_TIME
+	bool "Use MicroEJ time offset implementation"
+
+config MICROEJ_CORE_TIME_USE_NATIVE_ZEPHYR
+	bool "Use Zephyr native time implementation"
+
+endchoice
+
+endif

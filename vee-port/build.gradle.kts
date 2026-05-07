@@ -1,7 +1,7 @@
 /*
  * Kotlin
  *
- * Copyright 2025 MicroEJ Corp. All rights reserved.
+ * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
  */
 
@@ -18,26 +18,18 @@ microej {
 dependencies {
     microejArchitecture(libs.architecture)
 
-
-    /* Packs are fetched from bsp/vee/gradle/libs.versions.toml */
-    microejPack(libsOverride.pack.device)
-    microejPack(libsOverride.pack.event)
-    microejPack(libsOverride.pack.fs)
-    microejPack(libsOverride.pack.net)
-    microejPack(libsOverride.api.microai)
+    api(libs.api.device)
+    api(libs.api.event)
+    microejPack(libs.pack.fs)
+    microejPack(libs.pack.net)
+    microejPack(libs.pack.serial)
+    microejPack(libs.api.bluetooth)
+    microejPack(libs.api.microai)
 
     microejFrontPanel(project(":vee-port:front-panel"))
 
     microejMock(libs.jenkins)
 }
-
-tasks.register<Copy>("copyBspScripts") {
-    from("bsp")
-    into("../bsp/vee")
-}
-
-tasks.getByName("buildVeePort").dependsOn("copyBspScripts")
-tasks.getByName("buildVeePortConfiguration").dependsOn("copyBspScripts")
 
 val cleanVee by tasks.registering(Delete::class) {
     // Load configuration file
@@ -55,25 +47,41 @@ val cleanVee by tasks.registering(Delete::class) {
     val directories = listOf(
         bspRootDir + properties.getProperty("bsp.microejinc.relative.dir"),
         bspRootDir + properties.getProperty("bsp.microejlib.relative.dir"),
-        bspRootDir + properties.getProperty("bsp.microejapp.relative.dir"),
-        bspRootDir + "vee/boards/"
+        bspRootDir + properties.getProperty("bsp.microejapp.relative.dir")
     )
     delete(directories)
 
     // Execute clean script from the BSP
     val microejScriptDir = bspRootDir + properties.getProperty("bsp.microejscript.relative.dir")
     if(org.gradle.internal.os.OperatingSystem.current().isWindows) {
+        val scriptFile = project.file("$microejScriptDir/clean.bat")
         exec {
-            executable = "$microejScriptDir/clean.bat"
+            executable = scriptFile.absolutePath
         }
     } else { // Linux or MacOS
+        val scriptFile = project.file("$microejScriptDir/clean.sh")
         exec {
             executable = "bash"
-            args("$microejScriptDir/clean.sh")
+            args(scriptFile.absolutePath)
         }
     }
 }
 
 tasks.named("clean") {
     dependsOn(cleanVee)
+}
+
+artifacts {
+    add("additionalElements", file("../README.md")) {
+        classifier = "readme"
+    }
+    add("additionalElements", file("../CHANGELOG.md")) {
+        classifier = "changelog"
+    }
+    add("additionalElements", file("../LICENSE.txt")) {
+        classifier = "license"
+    }
+    add("additionalElements", file("../NOTICE.txt")) {
+        classifier = "notice"
+    }
 }

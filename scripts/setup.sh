@@ -2,7 +2,7 @@
 #
 # BASH
 #
-# Copyright 2025 MicroEJ Corp. All rights reserved.
+# Copyright 2025-2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
 
 # Create venv if not already created
@@ -21,11 +21,17 @@ else
 fi
 
 # install zephyr source and tools
+python -m pip install --upgrade pip setuptools wheel
 pip install west
-west init -l bsp
+west init -l bsp/zephyr-app
+cd bsp
 west update
 west zephyr-export
 west packages pip --install
+west patch apply
+
+# install git submodules
+git submodule update --init --recursive
 
 # install zephyr sdk, it will detect if it is already installed in the user $HOME
-west sdk install --no-hosttools
+west sdk install --no-hosttools -t arm-zephyr-eabi
