@@ -1,13 +1,11 @@
+#!/bin/bash
+
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
-
-#!/bin/bash
 #
-# BASH
-#
+# Build: 7E4D1F7C
 
 # 'run.sh' implementation for Zephyr.
-
 # 'run.sh' is responsible for flashing the executable file on the target device
 
 set -euo pipefail

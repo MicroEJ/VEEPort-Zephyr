@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -15,11 +16,18 @@
 
 #include <stdint.h>
 
+// Included outside of any "C" linkage block: it reaches the Zephyr logging header,
+// which declares C++ templates and overloads that cannot be given C linkage.
+#include "veeport_logger.h"
+
 /**
- * @brief LLKERNEL log level.
+ * @brief Log module shared by every source file of the KF Abstraction Layer.
  *
+ * One source file registers the module with VEEPORT_LOGGER_DEFINE_MODULE() and the
+ * others declare it with VEEPORT_LOGGER_DECLARE_MODULE(). The verbosity is set with
+ * CONFIG_MICROEJ_KF_LOG_LEVEL.
  */
-#define LLKERNEL_LOG_LEVEL LLKERNEL_LOG_ERROR
+#define LLKERNEL_LOG_MODULE microej_kf, VEEPORT_LOGGER_MODULE_LEVEL(KF)
 
 /**
  * @brief Kernel RAM allocation mode:

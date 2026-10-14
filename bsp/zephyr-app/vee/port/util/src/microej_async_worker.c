@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -20,6 +21,23 @@
 extern "C" {
 #endif
 
+/*
+ * Concurrency model
+ * -----------------
+ * The free jobs list and the waiting threads list are updated with the worker mutex held, and both are
+ * updated in the same critical section. Taking a free job and joining the waiting list are one
+ * indivisible decision: a job freed between the two would notify nobody, and the calling thread would
+ * never be resumed.
+ *
+ * The mutex is always taken with OSAL_INFINITE_TIME on a handle that cannot be NULL, so the take
+ * cannot fail and there is no status to act on.
+ *
+ * MICROEJ_ASYNC_WORKER_free_job() resumes a Java thread outside the critical section, because
+ * SNI_resumeJavaThread() may reschedule. Beware that the waiting threads list therefore has two
+ * consumers: the virtual machine task through a callback, and the worker task itself when a resume
+ * fails because the Java thread that ordered the job was killed.
+ */
+
 // Entry point of the async worker task.
 static void * MICROEJ_ASYNC_WORKER_loop(void *args);
 
@@ -28,6 +46,99 @@ static MICROEJ_ASYNC_WORKER_status_t MICROEJ_ASYNC_WORKER_async_exec_intern(MICR
                                                                             MICROEJ_ASYNC_WORKER_job_t *job,
                                                                             MICROEJ_ASYNC_WORKER_action_t action,
                                                                             SNI_callback on_done_callback, bool wait);
+
+/**
+ * @brief Removes the first job from the free jobs list.
+ *
+ * @warning The caller must hold the worker mutex.
+ *
+ * @param[in] async_worker the worker owning the list.
+ *
+ * @return the job, or NULL when no job is free.
+ */
+static inline MICROEJ_ASYNC_WORKER_job_t * MICROEJ_ASYNC_WORKER_pop_free_job(
+	MICROEJ_ASYNC_WORKER_handle_t *async_worker) {
+	MICROEJ_ASYNC_WORKER_job_t *job = async_worker->free_jobs;
+
+	if (job != NULL) {
+		async_worker->free_jobs = job->_intern.next_free_job;
+		job->_intern.next_free_job = NULL;
+	}
+
+	return job;
+}
+
+/**
+ * @brief Puts a job back at the head of the free jobs list.
+ *
+ * @warning The caller must hold the worker mutex.
+ *
+ * @param[in] async_worker the worker owning the list.
+ * @param[in] job the job to release.
+ */
+static inline void MICROEJ_ASYNC_WORKER_push_free_job(MICROEJ_ASYNC_WORKER_handle_t *async_worker,
+                                                      MICROEJ_ASYNC_WORKER_job_t *job) {
+	job->_intern.next_free_job = async_worker->free_jobs;
+	async_worker->free_jobs = job;
+}
+
+/**
+ * @brief Appends a Java thread to the waiting threads list.
+ *
+ * @warning The caller must hold the worker mutex.
+ *
+ * @param[in] async_worker the worker owning the list.
+ * @param[in] thread_id id of the Java thread to append.
+ *
+ * @return true when the thread was appended, false when the list is full.
+ */
+static inline bool MICROEJ_ASYNC_WORKER_push_waiting_thread(MICROEJ_ASYNC_WORKER_handle_t *async_worker,
+                                                            int32_t thread_id) {
+	uint_fast16_t tail = async_worker->waiting_threads_tail;
+	uint_fast16_t new_tail = tail + 1u;
+	bool appended = false;
+
+	if (new_tail >= async_worker->waiting_threads_length) {
+		new_tail = 0u;
+	}
+
+	// One slot is always left free, which is how a full list is told apart from an empty one.
+	if (new_tail != async_worker->waiting_threads_head) {
+		async_worker->waiting_threads[tail] = thread_id;
+		async_worker->waiting_threads_tail = new_tail;
+		appended = true;
+	}
+
+	return appended;
+}
+
+/**
+ * @brief Removes the oldest Java thread from the waiting threads list.
+ *
+ * @warning The caller must hold the worker mutex.
+ *
+ * @param[in] async_worker the worker owning the list.
+ *
+ * @return the id of the Java thread, or <code>SNI_ERROR</code> when no thread is waiting.
+ */
+static inline int32_t MICROEJ_ASYNC_WORKER_pop_waiting_thread(MICROEJ_ASYNC_WORKER_handle_t *async_worker) {
+	uint_fast16_t head = async_worker->waiting_threads_head;
+	int32_t thread_id = SNI_ERROR;
+
+	if (head != async_worker->waiting_threads_tail) {
+		uint_fast16_t new_head = head + 1u;
+
+		thread_id = async_worker->waiting_threads[head];
+
+		if (new_head >= async_worker->waiting_threads_length) {
+			new_head = 0u;
+		}
+
+		async_worker->waiting_threads_head = new_head;
+	}
+
+	return thread_id;
+}
 
 MICROEJ_ASYNC_WORKER_status_t MICROEJ_ASYNC_WORKER_initialize(MICROEJ_ASYNC_WORKER_handle_t *async_worker,
                                                               uint8_t *name,
@@ -42,12 +153,12 @@ MICROEJ_ASYNC_WORKER_status_t MICROEJ_ASYNC_WORKER_initialize(MICROEJ_ASYNC_WORK
 
 	// Init jobs
 	MICROEJ_ASYNC_WORKER_job_t *jobs = async_worker->free_jobs;
-	void *params = async_worker->params;
-	int32_t params_sizeof = async_worker->params_sizeof;
-	for (int i = 0; i < job_count - 1; i++) {
+	uint8_t *params = (uint8_t *)async_worker->params;
+	size_t params_sizeof = async_worker->params_sizeof;
+	for (int32_t i = 0; i < job_count - 1; i++) {
 		jobs[i]._intern.next_free_job = &jobs[i + 1];
 		jobs[i].params = params;
-		params = (void *)((int32_t)params + params_sizeof);
+		params += params_sizeof;
 	}
 	jobs[job_count - 1]._intern.next_free_job = NULL;
 	jobs[job_count - 1].params = params;
@@ -77,36 +188,27 @@ MICROEJ_ASYNC_WORKER_status_t MICROEJ_ASYNC_WORKER_initialize(MICROEJ_ASYNC_WORK
 MICROEJ_ASYNC_WORKER_job_t * MICROEJ_ASYNC_WORKER_allocate_job(MICROEJ_ASYNC_WORKER_handle_t *async_worker,
                                                                SNI_callback sni_retry_callback) {
 	MICROEJ_ASYNC_WORKER_job_t *job = NULL;
+	bool queued = false;
 
 	OSAL_mutex_take(&async_worker->mutex, OSAL_INFINITE_TIME);
 	{
-		job = async_worker->free_jobs;
-		if (job != NULL) {
-			// Free job found: remove it from the free list
-			async_worker->free_jobs = job->_intern.next_free_job;
-			job->_intern.next_free_job = NULL;
+		job = MICROEJ_ASYNC_WORKER_pop_free_job(async_worker);
+		if (job == NULL) {
+			int32_t thread_id = SNI_getCurrentJavaThreadID();
+			// Taking a free job and joining the waiting list are one indivisible decision: a job freed
+			// in between would notify nobody, and this thread would never be resumed.
+			queued = MICROEJ_ASYNC_WORKER_push_waiting_thread(async_worker, thread_id);
 		}
 	}
 	OSAL_mutex_give(&async_worker->mutex);
 
 	if (job == NULL) {
-		// No free job available: wait for a free job.
-		// Store the current thread id in the waiting list.
-		// First check if there is a free element in the waiting list.
-		int32_t free_waiting_thread_offset = async_worker->free_waiting_thread_offset;
-		int32_t new_free_waiting_thread_offset = free_waiting_thread_offset + 1;
-		if (new_free_waiting_thread_offset >= async_worker->waiting_threads_length) {
-			new_free_waiting_thread_offset = 0;
-		}
-
-		if (new_free_waiting_thread_offset == async_worker->waiting_thread_offset) {
-			// The waiting list is full.
-			SNI_throwNativeIOException(-1, "MICROEJ_ASYNC_WORKER: thread cannot be suspended, waiting list is full.");
-		} else {
-			async_worker->free_waiting_thread_offset = (uint16_t)new_free_waiting_thread_offset;
-			int32_t thread_id = SNI_getCurrentJavaThreadID();
-			async_worker->waiting_threads[free_waiting_thread_offset] = thread_id;
+		if (queued == true) {
+			// Wait for a job to be freed. MICROEJ_ASYNC_WORKER_free_job() then resumes this thread and
+			// sni_retry_callback runs this function again.
 			SNI_suspendCurrentJavaThreadWithCallback(0, (SNI_callback)sni_retry_callback, NULL);
+		} else {
+			SNI_throwNativeIOException(-1, "MICROEJ_ASYNC_WORKER: thread cannot be suspended, waiting list is full.");
 		}
 	}
 
@@ -115,29 +217,24 @@ MICROEJ_ASYNC_WORKER_job_t * MICROEJ_ASYNC_WORKER_allocate_job(MICROEJ_ASYNC_WOR
 
 MICROEJ_ASYNC_WORKER_status_t MICROEJ_ASYNC_WORKER_free_job(MICROEJ_ASYNC_WORKER_handle_t *async_worker,
                                                             MICROEJ_ASYNC_WORKER_job_t *job) {
+	int32_t thread_id;
+
 	OSAL_mutex_take(&async_worker->mutex, OSAL_INFINITE_TIME);
 	{
-		job->_intern.next_free_job = async_worker->free_jobs;
-		async_worker->free_jobs = job;
-
-		int32_t sni_status;
-		do {
-			int32_t waiting_thread_offset = async_worker->waiting_thread_offset;
-			if (waiting_thread_offset != async_worker->free_waiting_thread_offset) {
-				// A thread was waiting for a free job: notify it
-				int32_t thread_id = async_worker->waiting_threads[waiting_thread_offset];
-				int32_t new_waiting_thread_offset = waiting_thread_offset + 1;
-				if (new_waiting_thread_offset >= async_worker->waiting_threads_length) {
-					new_waiting_thread_offset = 0;
-				}
-				async_worker->waiting_thread_offset = new_waiting_thread_offset;
-				sni_status = SNI_resumeJavaThread(thread_id);
-			} else {
-				sni_status = SNI_OK;
-			}
-		} while (SNI_OK != sni_status); // if waiting thread is invalid (was killed), unqueue again
+		MICROEJ_ASYNC_WORKER_push_free_job(async_worker, job);
+		thread_id = MICROEJ_ASYNC_WORKER_pop_waiting_thread(async_worker);
 	}
 	OSAL_mutex_give(&async_worker->mutex);
+
+	// A thread is resumed outside the critical section: SNI_resumeJavaThread() may reschedule. An
+	// invalid id means the waiting thread was killed, so unqueue the next one.
+	while ((SNI_ERROR != thread_id) && (SNI_OK != SNI_resumeJavaThread(thread_id))) {
+		OSAL_mutex_take(&async_worker->mutex, OSAL_INFINITE_TIME);
+		{
+			thread_id = MICROEJ_ASYNC_WORKER_pop_waiting_thread(async_worker);
+		}
+		OSAL_mutex_give(&async_worker->mutex);
+	}
 
 	return MICROEJ_ASYNC_WORKER_OK;
 }

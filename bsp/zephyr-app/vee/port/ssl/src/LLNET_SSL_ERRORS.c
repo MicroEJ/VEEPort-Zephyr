@@ -1,52 +1,49 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif // !defined(MBEDTLS_CONFIG_FILE)
-
-#include "mbedtls/aes.h"
-#include "mbedtls/asn1.h"
-#include "mbedtls/base64.h"
-#include "mbedtls/bignum.h"
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-#include "mbedtls/blowfish.h"
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-#include "mbedtls/camellia.h"
-#include "mbedtls/ccm.h"
-#include "mbedtls/cipher.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/des.h"
-#include "mbedtls/dhm.h"
-#include "mbedtls/ecp.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/gcm.h"
-#include "mbedtls/hmac_drbg.h"
-#include "mbedtls/md.h"
-#include "mbedtls/net_sockets.h"
-#include "mbedtls/oid.h"
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-#include "mbedtls/padlock.h"
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-#include "mbedtls/pem.h"
-#include "mbedtls/pk.h"
-#include "mbedtls/pkcs12.h"
-#include "mbedtls/pkcs5.h"
-#include "mbedtls/rsa.h"
-#include "mbedtls/ssl.h"
-#include "mbedtls/threading.h"
-#include "mbedtls/x509.h"
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-#include "mbedtls/xtea.h"
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
+/* Mbed TLS 4 / TF-PSA-Crypto: the legacy cipher, DRBG, RSA, ECP and bignum error codes are gone. The
+ * modules below are the ones that still return their own MBEDTLS_ERR_* codes; everything else surfaces
+ * as a PSA status (psa/crypto.h). The surviving MBEDTLS_ERR_*_ALLOC_FAILED / _BAD_INPUT_DATA / _BUF_TOO_SMALL
+ * names (net_sockets.h, ssl.h, x509.h, compat-3-crypto.h) are aliases of one PSA status each, so a switch can
+ * name only the PSA status: a second alias is a duplicate case value. */
+#include <mbedtls/build_info.h>
+#include <mbedtls/asn1.h>
+#include <mbedtls/base64.h>
+#include <mbedtls/md.h>
+#include <mbedtls/net_sockets.h>
+#include <mbedtls/pem.h>
+#include <mbedtls/pk.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/x509.h>
+#include <psa/crypto.h>
+#if MBEDTLS_VERSION_MAJOR == 3
+/* Legacy crypto modules of Mbed TLS 3, whose error codes Mbed TLS 4 replaced by PSA statuses. */
+#include <mbedtls/aes.h>
+#include <mbedtls/bignum.h>
+#include <mbedtls/camellia.h>
+#include <mbedtls/ccm.h>
+#include <mbedtls/cipher.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/des.h>
+#include <mbedtls/dhm.h>
+#include <mbedtls/ecp.h>
+#include <mbedtls/gcm.h>
+#include <mbedtls/hmac_drbg.h>
+#include <mbedtls/oid.h>
+#include <mbedtls/pkcs12.h>
+#include <mbedtls/pkcs5.h>
+#include <mbedtls/rsa.h>
+#include <mbedtls/threading.h>
+#endif
 #include "LLNET_SSL_mbedtls_configuration.h"
 #include "LLNET_SSL_CONSTANTS.h"
 #include "LLNET_SSL_ERRORS.h"
 #include "sni.h"
+
+VEEPORT_LOGGER_DECLARE_MODULE(LLNET_SSL_LOG_MODULE)
 
 #ifdef __cplusplus
 extern "C" {
@@ -141,13 +138,15 @@ extern "C" {
  * J_DECRYPT_ERROR
  */
 
-jint LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
-	LLNET_SSL_DEBUG_TRACE("%s(SSL_error=%d)\n", __func__, mbedtls_error);
+#if MBEDTLS_VERSION_MAJOR == 3
+/**
+ * Translates the return codes of the legacy crypto modules of Mbed TLS 3 (RSA, ECP, MPI, cipher, MD, DRBG...),
+ * which Mbed TLS 4 / TF-PSA-Crypto replaced by PSA statuses.
+ *
+ * @return the J_* error code, or J_UNKNOWN_ERROR when the code is not one of them.
+ */
+static int32_t llnet_ssl_translate_mbedtls3_code(int32_t mbedtls_error) {
 	switch (mbedtls_error) {
-	case 0:
-		return J_SSL_NO_ERROR;
-
-	/* Generic error, no specific error for open */
 	case MBEDTLS_ERR_CTR_DRBG_ENTROPY_SOURCE_FAILED:
 		return J_OPEN_RAN_ERROR;
 
@@ -168,6 +167,116 @@ jint LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
 
 	case MBEDTLS_ERR_RSA_PUBLIC_FAILED:
 		return J_PUBLIC_KEY_ERROR;
+
+	case MBEDTLS_ERR_CCM_BAD_INPUT:
+	case MBEDTLS_ERR_CIPHER_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_DHM_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_GCM_BAD_INPUT:
+	case MBEDTLS_ERR_MD_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_MPI_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_PEM_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_PKCS12_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_PKCS5_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_PK_BAD_INPUT_DATA:
+	case MBEDTLS_ERR_THREADING_BAD_INPUT_DATA:
+		return J_BAD_FUNC_ARG;
+
+	case MBEDTLS_ERR_CIPHER_FEATURE_UNAVAILABLE:
+	case MBEDTLS_ERR_PKCS12_FEATURE_UNAVAILABLE:
+	case MBEDTLS_ERR_PKCS5_FEATURE_UNAVAILABLE:
+		return J_NOT_COMPILED_IN;
+
+	case MBEDTLS_ERR_PKCS12_PASSWORD_MISMATCH:
+	case MBEDTLS_ERR_PKCS5_PASSWORD_MISMATCH:
+		return J_UNICODE_SIZE_ERROR;
+
+	case MBEDTLS_ERR_GCM_AUTH_FAILED:
+		return J_AES_GCM_AUTH_ERROR;
+
+	case MBEDTLS_ERR_CCM_AUTH_FAILED:
+		return J_AES_CCM_AUTH_ERROR;
+
+	case MBEDTLS_ERR_CIPHER_INVALID_PADDING:
+		return J_BAD_PADDING_ERROR;
+
+	case MBEDTLS_ERR_RSA_RNG_FAILED:
+		return J_RNG_FAILURE_ERROR;
+
+	case MBEDTLS_ERR_RSA_INVALID_PADDING:
+		return J_RSA_PAD_ERROR;
+
+	case MBEDTLS_ERR_AES_INVALID_INPUT_LENGTH:
+	case MBEDTLS_ERR_CAMELLIA_INVALID_INPUT_LENGTH:
+	case MBEDTLS_ERR_CTR_DRBG_INPUT_TOO_BIG:
+	case MBEDTLS_ERR_DES_INVALID_INPUT_LENGTH:
+	case MBEDTLS_ERR_HMAC_DRBG_INPUT_TOO_BIG:
+		return J_INPUT_CASE_ERROR;
+
+	case MBEDTLS_ERR_AES_INVALID_KEY_LENGTH:
+		return J_PREFIX_ERROR;
+
+	case MBEDTLS_ERR_ASN1_ALLOC_FAILED:
+	case MBEDTLS_ERR_CIPHER_ALLOC_FAILED:
+	case MBEDTLS_ERR_DHM_ALLOC_FAILED:
+	case MBEDTLS_ERR_ECP_ALLOC_FAILED:
+	case MBEDTLS_ERR_MD_ALLOC_FAILED:
+	case MBEDTLS_ERR_MPI_ALLOC_FAILED:
+	case MBEDTLS_ERR_PK_ALLOC_FAILED:
+	case MBEDTLS_ERR_SSL_ALLOC_FAILED:
+	case MBEDTLS_ERR_X509_ALLOC_FAILED:
+		return J_MEMORY_ERROR;
+
+	case MBEDTLS_ERR_NET_BUFFER_TOO_SMALL:
+		return J_SOCKET_NODATA;
+
+	case MBEDTLS_ERR_RSA_PRIVATE_FAILED:
+		return J_RSA_PRIVATE_ERROR;
+
+	case MBEDTLS_ERR_ASN1_BUF_TOO_SMALL:
+	case MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL:
+	case MBEDTLS_ERR_ECP_BUFFER_TOO_SMALL:
+	case MBEDTLS_ERR_MPI_BUFFER_TOO_SMALL:
+	case MBEDTLS_ERR_OID_BUF_TOO_SMALL:
+	case MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL:
+	case MBEDTLS_ERR_X509_BUFFER_TOO_SMALL:
+		return J_MALFORMED_BUFFER;
+
+	case MBEDTLS_ERR_SSL_BAD_INPUT_DATA:
+		return J_LENGTH_ERROR;
+
+	case MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE:
+		return J_ECC_CURVETYPE_ERROR;
+
+	case MBEDTLS_ERR_ECP_BAD_INPUT_DATA:
+		return J_ECC_CURVE_ERROR;
+
+	case MBEDTLS_ERR_ECP_INVALID_KEY:
+		return J_ECC_PEERKEY_ERROR;
+
+	case MBEDTLS_ERR_ECP_RANDOM_FAILED:
+		return J_ECC_MAKEKEY_ERROR;
+
+	case MBEDTLS_ERR_PEM_ALLOC_FAILED:
+		return J_BAD_CERT_MANAGER_ERROR;
+
+	default:
+		return J_UNKNOWN_ERROR;
+	}
+}
+
+#endif /* MBEDTLS_VERSION_MAJOR == 3 */
+
+int32_t LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
+	VEEPORT_LOGGER_LOG_DBG("SSL_error=%d", mbedtls_error);
+#if MBEDTLS_VERSION_MAJOR == 3
+	int32_t legacy = llnet_ssl_translate_mbedtls3_code(mbedtls_error);
+	if (J_UNKNOWN_ERROR != legacy) {
+		return legacy;
+	}
+#endif
+	switch (mbedtls_error) {
+	case 0:
+		return J_SSL_NO_ERROR;
 
 	case MBEDTLS_ERR_X509_INVALID_DATE:
 		return J_DATE_ERROR;
@@ -194,121 +303,38 @@ jint LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
 	case MBEDTLS_ERR_ASN1_INVALID_LENGTH:
 		return J_ASN_INPUT_ERROR;
 
-	case MBEDTLS_ERR_MPI_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_CCM_BAD_INPUT:
-	case MBEDTLS_ERR_CIPHER_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_DHM_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_GCM_BAD_INPUT:
-	case MBEDTLS_ERR_MD_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_PEM_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_PK_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_PKCS12_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_PKCS5_BAD_INPUT_DATA:
-	case MBEDTLS_ERR_THREADING_BAD_INPUT_DATA:
+	/* Also MBEDTLS_ERR_MD_BAD_INPUT_DATA, MBEDTLS_ERR_PEM_BAD_INPUT_DATA, MBEDTLS_ERR_PK_BAD_INPUT_DATA and
+	 * MBEDTLS_ERR_SSL_BAD_INPUT_DATA. */
+	case PSA_ERROR_INVALID_ARGUMENT:
 		return J_BAD_FUNC_ARG;
 
-	case MBEDTLS_ERR_CIPHER_FEATURE_UNAVAILABLE:
 	case MBEDTLS_ERR_MD_FEATURE_UNAVAILABLE:
 	case MBEDTLS_ERR_PEM_FEATURE_UNAVAILABLE:
 	case MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE:
-	case MBEDTLS_ERR_PKCS12_FEATURE_UNAVAILABLE:
-	case MBEDTLS_ERR_PKCS5_FEATURE_UNAVAILABLE:
 	case MBEDTLS_ERR_SSL_FEATURE_UNAVAILABLE:
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_THREADING_FEATURE_UNAVAILABLE:
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
 	case MBEDTLS_ERR_X509_FEATURE_UNAVAILABLE:
+	case PSA_ERROR_NOT_SUPPORTED:
 		return J_NOT_COMPILED_IN;
 
 	case MBEDTLS_ERR_PEM_PASSWORD_MISMATCH:
 	case MBEDTLS_ERR_PK_PASSWORD_MISMATCH:
-	case MBEDTLS_ERR_PKCS12_PASSWORD_MISMATCH:
-	case MBEDTLS_ERR_PKCS5_PASSWORD_MISMATCH:
 		return J_UNICODE_SIZE_ERROR;
 
 	case MBEDTLS_ERR_PEM_PASSWORD_REQUIRED:
 	case MBEDTLS_ERR_PK_PASSWORD_REQUIRED:
 		return J_NO_PASSWORD;
 
-	case MBEDTLS_ERR_GCM_AUTH_FAILED:
-		return J_AES_GCM_AUTH_ERROR;
-
-	case MBEDTLS_ERR_CCM_AUTH_FAILED:
-		return J_AES_CCM_AUTH_ERROR;
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_PADLOCK_DATA_MISALIGNED:
-		return J_BAD_ALIGN_ERROR;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-
-	case MBEDTLS_ERR_CIPHER_INVALID_PADDING:
-		return J_BAD_PADDING_ERROR;
-
-	case MBEDTLS_ERR_RSA_RNG_FAILED:
 	case MBEDTLS_ERR_SSL_NO_RNG:
+	case PSA_ERROR_INSUFFICIENT_ENTROPY:
 		return J_RNG_FAILURE_ERROR;
 
-	case MBEDTLS_ERR_RSA_INVALID_PADDING:
-		return J_RSA_PAD_ERROR;
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_SSL_UNKNOWN_CIPHER:
-		return J_UNSUPPORTED_SUITE;
-
-	case MBEDTLS_ERR_SSL_NO_CIPHER_CHOSEN:
-		return J_MATCH_SUITE_ERROR;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-
-	case MBEDTLS_ERR_AES_INVALID_INPUT_LENGTH:
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_BLOWFISH_INVALID_INPUT_LENGTH:
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_CAMELLIA_INVALID_INPUT_LENGTH:
-	case MBEDTLS_ERR_CTR_DRBG_INPUT_TOO_BIG:
-	case MBEDTLS_ERR_DES_INVALID_INPUT_LENGTH:
-	case MBEDTLS_ERR_HMAC_DRBG_INPUT_TOO_BIG:
 	case MBEDTLS_ERR_X509_BAD_INPUT_DATA:
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_XTEA_INVALID_INPUT_LENGTH:
 		return J_INPUT_CASE_ERROR;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
 
-	case MBEDTLS_ERR_AES_INVALID_KEY_LENGTH:
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_BLOWFISH_INVALID_KEY_LENGTH:
-	case MBEDTLS_ERR_CAMELLIA_INVALID_KEY_LENGTH:
-		return J_PREFIX_ERROR;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-
-	case MBEDTLS_ERR_CIPHER_ALLOC_FAILED:
-	case MBEDTLS_ERR_DHM_ALLOC_FAILED:
-	case MBEDTLS_ERR_MD_ALLOC_FAILED:
-	case MBEDTLS_ERR_X509_ALLOC_FAILED:
-	case MBEDTLS_ERR_MPI_ALLOC_FAILED:
-	case MBEDTLS_ERR_ASN1_ALLOC_FAILED:
-	case MBEDTLS_ERR_ECP_ALLOC_FAILED:
-	case MBEDTLS_ERR_PK_ALLOC_FAILED:
-	case MBEDTLS_ERR_SSL_ALLOC_FAILED:
+	/* Also MBEDTLS_ERR_MD_ALLOC_FAILED, MBEDTLS_ERR_PEM_ALLOC_FAILED, MBEDTLS_ERR_ASN1_ALLOC_FAILED,
+	* MBEDTLS_ERR_PK_ALLOC_FAILED, MBEDTLS_ERR_X509_ALLOC_FAILED and MBEDTLS_ERR_SSL_ALLOC_FAILED. */
+	case PSA_ERROR_INSUFFICIENT_MEMORY:
 		return J_MEMORY_ERROR;
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_SSL_INVALID_VERIFY_HASH:
-		return J_VERIFY_FINISHED_ERROR;
-
-	case MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO:
-		return J_HEADER_PARSE_ERROR;
-
-	case MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE:
-	case MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE_REQUEST:
-	case MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE_VERIFY:
-		return J_NO_PEER_CERT;
-
-	case MBEDTLS_ERR_SSL_BAD_HS_PROTOCOL_VERSION:
-		return J_UNKNOWN_HANDSHAKE_TYPE;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
 
 	case MBEDTLS_ERR_NET_CONN_RESET:
 		return J_CONNECTION_RESET;
@@ -323,7 +349,6 @@ jint LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
 		return J_SOCKET_ERROR;
 
 	case MBEDTLS_ERR_NET_RECV_FAILED:
-	case MBEDTLS_ERR_NET_BUFFER_TOO_SMALL:
 	case MBEDTLS_ERR_NET_INVALID_CONTEXT:
 		return J_SOCKET_NODATA;
 
@@ -333,14 +358,6 @@ jint LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
 
 	case MBEDTLS_ERR_SSL_PRIVATE_KEY_REQUIRED:
 		return J_NO_PRIVATE_KEY;
-
-	case MBEDTLS_ERR_RSA_PRIVATE_FAILED:
-		return J_RSA_PRIVATE_ERROR;
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO:
-		return J_BAD_HELLO;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
 
 	case MBEDTLS_ERR_SSL_WANT_READ:
 		return J_WANT_READ;
@@ -355,13 +372,9 @@ jint LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
 	case MBEDTLS_ERR_X509_UNKNOWN_VERSION:
 		return J_VERSION_ERROR;
 
-	case MBEDTLS_ERR_ASN1_BUF_TOO_SMALL:
-	case MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL:
-	case MBEDTLS_ERR_MPI_BUFFER_TOO_SMALL:
-	case MBEDTLS_ERR_ECP_BUFFER_TOO_SMALL:
-	case MBEDTLS_ERR_OID_BUF_TOO_SMALL:
-	case MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL:
-	case MBEDTLS_ERR_X509_BUFFER_TOO_SMALL:
+	/* Also MBEDTLS_ERR_ASN1_BUF_TOO_SMALL, MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL, MBEDTLS_ERR_PK_BUFFER_TOO_SMALL,
+	 * MBEDTLS_ERR_NET_BUFFER_TOO_SMALL, MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL and MBEDTLS_ERR_X509_BUFFER_TOO_SMALL. */
+	case PSA_ERROR_BUFFER_TOO_SMALL:
 		return J_MALFORMED_BUFFER;
 
 	case MBEDTLS_ERR_X509_CERT_VERIFY_FAILED:
@@ -373,55 +386,17 @@ jint LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error) {
 	case MBEDTLS_ERR_SSL_UNKNOWN_IDENTITY:
 		return J_CLIENT_ID_ERROR;
 
-	case MBEDTLS_ERR_SSL_BAD_INPUT_DATA:
-		return J_LENGTH_ERROR;
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_SSL_BAD_HS_SERVER_KEY_EXCHANGE:
-		return J_PEER_KEY_ERROR;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-
 	case MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY:
 		return J_ZERO_RETURN;
-
-	case MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE:
-		return J_ECC_CURVETYPE_ERROR;
-
-	case MBEDTLS_ERR_ECP_BAD_INPUT_DATA:
-		return J_ECC_CURVE_ERROR;
-
-	case MBEDTLS_ERR_ECP_INVALID_KEY:
-		return J_ECC_PEERKEY_ERROR;
-
-	case MBEDTLS_ERR_ECP_RANDOM_FAILED:
-		return J_ECC_MAKEKEY_ERROR;
 
 	case MBEDTLS_ERR_SSL_CA_CHAIN_REQUIRED:
 		return J_NO_TRUSTED_CERT;
 
-	case MBEDTLS_ERR_PEM_ALLOC_FAILED:
-		return J_BAD_CERT_MANAGER_ERROR;
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_SSL_NO_USABLE_CIPHERSUITE:
-		return J_SUITES_ERROR;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-
 	case MBEDTLS_ERR_PEM_INVALID_DATA:
 		return J_SSL_NO_PEM_HEADER;
 
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_SSL_PEER_VERIFY_FAILED:
-		return J_NO_PEER_VERIFY;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-
 	case MBEDTLS_ERR_SSL_WAITING_SERVER_HELLO_RENEGO:
 		return J_SECURE_RENEGOTIATION_ERROR;
-
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-	case MBEDTLS_ERR_SSL_BAD_HS_CHANGE_CIPHER_SPEC:
-		return J_NO_CHANGE_CIPHER_ERROR;
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
 
 	case MBEDTLS_ERR_X509_INVALID_FORMAT:
 		return J_BAD_CERTTYPE;

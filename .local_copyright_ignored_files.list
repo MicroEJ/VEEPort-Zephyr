@@ -68,3 +68,7 @@ bsp/vee/thirdparty/embunit/tools/tbcuppa/strvec.h
 bsp/vee/thirdparty/embunit/tools/tbcuppa/tcuppa.c
 bsp/vee/thirdparty/embunit/tools/tbuma/buma.c
 bsp/vee/thirdparty/embunit/tools/tbuma/tuma.c
+
+# Derivative of Cppcheck's GPL misra addon; carries a GPL header, not the MicroEJ BSD stamp.
+bsp/cppcheck/misra-fast-addon/misra.py
+bsp/cppcheck/MISRA_C_2012_rules.txt

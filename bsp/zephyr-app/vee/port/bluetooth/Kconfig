@@ -1,20 +1,39 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
 
 
 config MICROEJ_BLUETOOTH
 	bool "Build Bluetooth Abstraction Layer"
 	default y
-	select MICROEJ_BT_SSL_SECURITY_ERROR if MICROEJ_SSL || MICROEJ_SECURITY
+	select MICROEJ_BT_SSL_ERROR if MICROEJ_SSL
 
-config MICROEJ_BT_SSL_SECURITY_ERROR
-	bool "Bluetooth cannot be enabled together with MICROEJ_SSL or MICROEJ_SECURITY"
+config MICROEJ_BT_SSL_ERROR
+	bool "Bluetooth cannot be enabled together with MICROEJ_SSL"
 	default n
 
-if MICROEJ_BLUETOOTH && !MICROEJ_BT_SSL_SECURITY_ERROR
+if MICROEJ_BLUETOOTH && !MICROEJ_BT_SSL_ERROR
+
+module = MICROEJ_BLUETOOTH
+module-str = the MicroEJ Bluetooth Abstraction Layer
+# Default to ERR instead of LOG_DEFAULT_LEVEL. Keep this block before the template: the first default wins.
+choice MICROEJ_BLUETOOTH_LOG_LEVEL_CHOICE
+	default MICROEJ_BLUETOOTH_LOG_LEVEL_ERR
+endchoice
+source "subsys/logging/Kconfig.template.log_config"
+
+config MICROEJ_BLUETOOTH_UNPAIR_ON_ENABLE
+	bool "Remove every bond when enabling Bluetooth"
+	default n
+	help
+		Removes every bond, and the GATT state attached to it, each time the
+		application enables Bluetooth.
+
 config BT
 	default y
 config BT_PERIPHERAL
+	default y
+config BT_CENTRAL
 	default y
 config BT_GATT_CLIENT
 	default y
@@ -24,11 +43,9 @@ config BT_GATT_ENFORCE_SUBSCRIPTION
 	default n
 config BT_SMP
 	default y
-config BT_SMP_APP_PAIRING_ACCEPT
-	default y
+config BT_SMP_SC_PAIR_ONLY
+	default n
 config BT_PRIVACY
-	default y
-config BT_SIGNING
 	default y
 config BT_KEYS_OVERWRITE_OLDEST
 	default y
@@ -47,7 +64,7 @@ config BT_RX_STACK_SIZE
 config BT_CTS_HELPER_API
 	default y
 config BT_ATT_PREPARE_COUNT
-	default 5
+	default 10
 config BT_L2CAP_TX_MTU
 	default 517
 config BT_BUF_ACL_RX_SIZE

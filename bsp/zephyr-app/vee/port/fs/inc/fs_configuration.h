@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 #ifndef  FS_CONFIGURATION_H
@@ -16,6 +17,7 @@
 
 #include "fs_helper_configuration.h"
 #include "microej_async_worker.h"
+#include "veeport_logger.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,27 +89,13 @@ extern MICROEJ_ASYNC_WORKER_handle_t fs_worker;
 #define FS_IO_BUFFER_SIZE (CONFIG_MICROEJ_FS_IO_BUFFER_SIZE)
 
 /**
- * @brief Copies a file path from an input buffer to another buffer that will be sent to
- * the async_worker job, checking against path size constraints.
+ * @brief Log module shared by every source file of the File System Abstraction Layer.
  *
- * @param[in] path caller buffer where the file path is stored.
- * @param[in] path_param buffer where the file path will be copied if the path size constraints are solved.
- *
- * @return <code>LLFS_OK</code> on success, else a negative error code.
+ * One source file registers the module with VEEPORT_LOGGER_DEFINE_MODULE() and the
+ * others declare it with VEEPORT_LOGGER_DECLARE_MODULE(). The verbosity is set with
+ * CONFIG_MICROEJ_FS_LOG_LEVEL.
  */
-int32_t LLFS_set_path_param(uint8_t *path, uint8_t *path_param);
-
-/**
- * @brief Set this define to print debug traces.
- */
-//#define LLFS_DEBUG
-
-#ifdef LLFS_DEBUG
-#include <stdio.h>
-#define LLFS_DEBUG_TRACE printf("[DEBUG] "); printf
-#else
-#define LLFS_DEBUG_TRACE(...) ((void)0)
-#endif
+#define LLFS_LOG_MODULE microej_fs, VEEPORT_LOGGER_MODULE_LEVEL(FS)
 
 #ifdef __cplusplus
 }

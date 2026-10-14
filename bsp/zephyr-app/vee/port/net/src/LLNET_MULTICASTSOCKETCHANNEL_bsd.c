@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -17,30 +18,32 @@
 #include "LLNET_CHANNEL_impl.h"
 #include "zephyr/net/net_if.h"
 
+VEEPORT_LOGGER_DECLARE_MODULE(LLNET_LOG_MODULE)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 int32_t LLNET_MULTICASTSOCKETCHANNEL_IMPL_getTimeToLive(int32_t fd) {
-	LLNET_DEBUG_TRACE("%s(fd=0x%X)\n", __func__, fd);
+	VEEPORT_LOGGER_LOG_DBG("fd=0x%X", fd);
 	return LLNET_CHANNEL_IMPL_getOption(fd, LLNET_SOCKETOPTION_IP_TTL);
 }
 
 void LLNET_MULTICASTSOCKETCHANNEL_IMPL_setTimeToLive(int32_t fd, int32_t ttl) {
-	LLNET_DEBUG_TRACE("%s(fd=0x%X)\n", __func__, fd);
+	VEEPORT_LOGGER_LOG_DBG("fd=0x%X", fd);
 	LLNET_CHANNEL_IMPL_setOption(fd, LLNET_SOCKETOPTION_IP_TTL, ttl);
 }
 
 void LLNET_MULTICASTSOCKETCHANNEL_IMPL_joinOrLeave(int32_t fd, uint8_t join, int8_t *mcastAddr, int32_t mcastAddrLength,
                                                    int8_t *netIfAddr, int32_t netIfAddrLength) {
-	LLNET_DEBUG_TRACE("%s(fd=0x%X)\n", __func__, fd);
+	VEEPORT_LOGGER_LOG_DBG("fd=0x%X", fd);
 	int32_t fd_errno;
 #if CONFIG_NET_IPV4
 
 	if (mcastAddrLength == sizeof(in_addr_t) && (netIfAddrLength == sizeof(in_addr_t) || netIfAddrLength == 0)) {
 		struct ip_mreqn optval;
 		optval.imr_multiaddr.s_addr = *(in_addr_t *)mcastAddr;
-		LLNET_DEBUG_TRACE("The value of mcastAddr is 0x%X\n", *(uint32_t *)mcastAddr);
+		VEEPORT_LOGGER_LOG_DBG("The value of mcastAddr is 0x%X", *(uint32_t *)mcastAddr);
 		if (netIfAddrLength != 0) {
 			optval.imr_address.s_addr = *(in_addr_t *)netIfAddr;
 			optval.imr_ifindex = net_if_ipv4_addr_lookup_by_index(&optval.imr_address);
@@ -52,8 +55,8 @@ void LLNET_MULTICASTSOCKETCHANNEL_IMPL_joinOrLeave(int32_t fd, uint8_t join, int
 		if (llnet_setsockopt(fd, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &optval,
 		                     sizeof(optval)) == -1) {
 			fd_errno = llnet_errno(fd);
-			LLNET_DEBUG_TRACE("%s(%d): errno=%d\n", __func__, __LINE__, fd_errno);
-			SNI_throwNativeIOException(LLNET_map_to_java_exception(fd_errno), LLNET_get_socket_error_msg(fd_errno));
+			VEEPORT_LOGGER_LOG_DBG("line %d: errno=%d", __LINE__, fd_errno);
+			LLNET_throw_socket_error(fd_errno);
 		}
 		return;
 	}
@@ -77,13 +80,14 @@ void LLNET_MULTICASTSOCKETCHANNEL_IMPL_joinOrLeave(int32_t fd, uint8_t join, int
 		if (llnet_setsockopt(fd, IPPROTO_IPV6, join ? IPV6_JOIN_GROUP : IPV6_LEAVE_GROUP, &optval,
 		                     sizeof(optval)) == -1) {
 			fd_errno = llnet_errno(fd);
-			LLNET_DEBUG_TRACE("%s(%d): errno=%d\n", __func__, __LINE__, fd_errno);
-			SNI_throwNativeIOException(LLNET_map_to_java_exception(fd_errno), LLNET_get_socket_error_msg(fd_errno));
+			VEEPORT_LOGGER_LOG_DBG("line %d: errno=%d", __LINE__, fd_errno);
+			LLNET_throw_socket_error(fd_errno);
 		}
 		return;
 	}
 #endif /* if CONFIG_NET_IPV6 */
-	SNI_throwNativeIOException(J_EINVAL, "wrong address length");
+	VEEPORT_LOGGER_LOG_DBG("wrong address length");
+	VEEPORT_ERRORS_throw_caught_exception(J_EINVAL);
 }
 
 #ifdef __cplusplus

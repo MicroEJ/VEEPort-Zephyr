@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -16,11 +17,11 @@
 #include "LLNET_ERRORS.h"
 #include "zephyr/posix/fcntl.h"
 
+VEEPORT_LOGGER_DEFINE_MODULE(LLNET_LOG_MODULE)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-static const char *LLNET_UNSPECIFIED_ERROR_MSG = "Unspecified error";
 
 /**
  * @brief Convert a network error code into a java error code.
@@ -85,13 +86,13 @@ uint32_t LLNET_getScopeForIp(const char *ip) {
 
 	ret = net_addr_pton(AF_INET6, ip, &in6);
 	if (ret < 0) {
-		LLNET_DEBUG_TRACE("Conversion from string to in6_addr failed with %d\n", ret);
+		VEEPORT_LOGGER_LOG_DBG("Conversion from string to in6_addr failed with %d", ret);
 		return 0;
 	}
 	struct net_if_addr *addr = net_if_ipv6_addr_lookup(&in6, &iface);
 	if (!addr) {
-		LLNET_DEBUG_TRACE("The ip address (%s) is not linked to an interface\nChoosing the default one : %s\n", ip,
-		                  LLNET_IPV6_INTERFACE_NAME);
+		VEEPORT_LOGGER_LOG_DBG("The ip address (%s) is not linked to an interface, choosing the default one: %s", ip,
+		                       LLNET_IPV6_INTERFACE_NAME);
 		return net_if_get_by_name(LLNET_IPV6_INTERFACE_NAME);
 	}
 	ret = net_if_get_by_iface(iface);
@@ -99,7 +100,7 @@ uint32_t LLNET_getScopeForIp(const char *ip) {
 }
 
 void LLNET_map_ipv4_into_ipv6(in_addr_t *ipv4_addr, struct in6_addr *ipv6_addr) {
-	LLNET_DEBUG_TRACE("%s\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 	if (*(ipv4_addr) == htonl(INADDR_ANY)) {
 		const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
 		*ipv6_addr = in6addr_any;
@@ -116,12 +117,14 @@ void LLNET_map_ipv4_into_ipv6(in_addr_t *ipv4_addr, struct in6_addr *ipv6_addr) 
 
 #endif /* if CONFIG_NET_IPV6 */
 
-const char * LLNET_get_socket_error_msg(int32_t error) {
-	const char *error_msg = strerror(error);
-	if (strcmp(error_msg, "") == 0) {
-		return LLNET_UNSPECIFIED_ERROR_MSG;
+void LLNET_throw_socket_error(int32_t fd_errno) {
+	int32_t error_code = LLNET_map_to_java_exception(fd_errno);
+	if (J_EUNKNOWN == error_code) {
+		VEEPORT_ERRORS_throw_caught_exception_message(error_code, "%s (%d)", strerror(fd_errno), fd_errno);
+	} else {
+		VEEPORT_LOGGER_LOG_DBG("socket error %d: %s", fd_errno, strerror(fd_errno));
+		VEEPORT_ERRORS_throw_caught_exception(error_code);
 	}
-	return error_msg;
 }
 
 /**
@@ -150,7 +153,7 @@ void LLNET_handle_blocking_operation_error(int32_t fd, int32_t fd_errno, select_
 	//check if timeout occurs
 	if (absolute_timeout_ms != 0 && absolute_timeout_ms < LLNET_current_time_ms()) {
 		//timeout occurs
-		SNI_throwNativeIOException(J_ETIMEDOUT, "timeout");
+		VEEPORT_ERRORS_throw_caught_exception(J_ETIMEDOUT);
 		return;
 	}
 
@@ -161,7 +164,7 @@ void LLNET_handle_blocking_operation_error(int32_t fd, int32_t fd_errno, select_
 		return;
 	}
 
-	SNI_throwNativeIOException(LLNET_map_to_java_exception(fd_errno), LLNET_get_socket_error_msg(fd_errno));
+	LLNET_throw_socket_error(fd_errno);
 }
 
 /**
@@ -178,7 +181,7 @@ int32_t LLNET_set_non_blocking(int32_t fd) {
 #else
 	int32_t flags = llnet_fcntl(fd, F_GETFL, 0);
 	if (flags == -1) {
-		LLNET_DEBUG_TRACE("llnet_fcntl failed with value %d\n", flags);
+		VEEPORT_LOGGER_LOG_DBG("llnet_fcntl failed with value %d", flags);
 		return -1;
 	}
 	flags |= O_NONBLOCK;

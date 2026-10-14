@@ -9,6 +9,7 @@
 #include <string.h>
 #include "sni.h"
 #include "LLDEVICE_impl.h"
+#include "veeport_errors.h"
 #include <zephyr/drivers/hwinfo.h>
 #include "zephyr/sys/reboot.h"
 #include "zephyr/sys/poweroff.h"
@@ -69,10 +70,10 @@ void LLDEVICE_IMPL_getVersion(uint8_t *buffer) {
 		buffer[length - 1] = '\0';
 	} else {
 		// buffer too small
-		(void)SNI_throwNativeException(-1, "Failed to retrieve device revision: buffer is too small.");
+		VEEPORT_ERRORS_throw_runtime_exception(RUNTIME_EXCEPTION_INVALID_ARGUMENT);
 	}
 #else
-	(void)SNI_throwNativeException(-1, "Zephyr board revision is not implemented.");
+	VEEPORT_ERRORS_throw_runtime_exception(RUNTIME_EXCEPTION_NOT_IMPLEMENTED);
 #endif
 }
 
@@ -83,7 +84,7 @@ void LLDEVICE_IMPL_reboot(void) {
 #ifdef CONFIG_REBOOT
 	sys_reboot(SYS_REBOOT_COLD);
 #else
-	(void)SNI_throwNativeException(-1, "Zephyr reboot functionality is not implemented.");
+	VEEPORT_ERRORS_throw_runtime_exception(RUNTIME_EXCEPTION_NOT_IMPLEMENTED);
 #endif
 }
 
@@ -94,6 +95,6 @@ void LLDEVICE_IMPL_shutdown(void) {
 #ifdef CONFIG_HAS_POWEROFF
 	sys_poweroff();
 #else
-	(void)SNI_throwNativeException(-1, "Zephyr power off functionality is not implemented.");
+	VEEPORT_ERRORS_throw_runtime_exception(RUNTIME_EXCEPTION_NOT_IMPLEMENTED);
 #endif
 }

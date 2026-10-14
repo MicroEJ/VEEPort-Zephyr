@@ -1,14 +1,17 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 #if CONFIG_MICROEJ_CORE
-#include "microej_main.h"
+#include "veeport_main.h"
 #include "LLMJVM.h"
 #include "sni.h"
 #endif // CONFIG_MICROEJ_CORE
-#include "stddef.h"
+#include <stddef.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(main);
 #ifdef CONFIG_ARCH_POSIX
 #include <nsi_main.h>
 #endif
@@ -45,7 +48,10 @@ int main(void) {
 #endif // CONFIG_MICROEJ_KF
 
 #if CONFIG_MICROEJ_CORE
-	microej_main(0, NULL);
+	int result = veeport_main(0, NULL, NULL);
+	if (0 != result) {
+		LOG_ERR("veeport_main error: %d", result);
+	}
 #endif // CONFIG_MICROEJ_CORE
 
 #ifdef CONFIG_ARCH_POSIX

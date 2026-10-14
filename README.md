@@ -1,5 +1,5 @@
 ![SDK](https://shields.microej.com/endpoint?url=https://repository.microej.com/packages/badges/sdk_6.0.json)
-![ARCH](https://shields.microej.com/endpoint?url=https://repository.microej.com/packages/badges/arch_8.3.json)
+![ARCH](https://shields.microej.com/endpoint?url=https://repository.microej.com/packages/badges/arch_8.6.json)
 
 # MicroEJ VEE Port for Zephyr
 
@@ -19,21 +19,22 @@ This directory contains:
 
 ## VEE Port Specifications
 
-The architecture version is `8.3.0`.
+The architecture version is `8.6.0`.
 
 This VEE Port provides the following Foundation Libraries:
 
 | Foundation Library | Version |
 |--------------------|---------|
-| BON                | 1.4     |
-| BLUETOOTH          | 2.4     |
-| DEVICE             | 1.2     |
-| EVENT              | 2.1     |
+| BON                | 1.5     |
+| BLUETOOTH          | 3.0     |
+| DEVICE             | 1.4     |
+| EVENT              | 3.0     |
 | FS                 | 2.1     |
 | KF                 | 1.7     |
+| MICROAI            | 2.2     |
 | NET                | 1.1     |
 | RESOURCEMANAGER    | 1.0     |
-| SECURITY           | 1.7     |
+| CRYPTO             | 2.1     |
 | SERIAL             | 3.0     |
 | SNI                | 1.4     |
 | WATCHDOG           | 1.0     |
@@ -67,6 +68,8 @@ The project contains the following subprojects:
 - `bsp/zephyr-app/tests`: Contains Zephyr applications to run native test code, see [Native Tests](#native-tests) section for more information.
 
 - `bsp/zephyr-app/vee`: Contains the Abstraction Layers supported by this VEE.
+
+- `bsp/zephyr-app/zephyr`: Contains the Zephyr module manifest, the Zephyr patches and the board extensions (see [Board extensions](#board-extensions)).
 
 - `bsp/modules` and `bsp/optional`: Contains modules required by Zephyr.
 
@@ -113,6 +116,8 @@ Or even simpler, use the [setup.sh](./scripts/setup.sh) or [setup.bat](./scripts
 This script will fetch the Zephyr source using `west`, then install all the required Python packages, using a Python `venv`.
 Finally, it will install the Zephyr SDK, if it is not already installed on the host environment.
 
+Zephyr 4.4 requires Python 3.12 or newer and Zephyr SDK 1.0.x; the script installs the SDK version the Zephyr tree asks for.
+
 #### Linux / Git bash for Windows
 
 ```sh
@@ -140,20 +145,44 @@ If you wish to use one of the three example cards, please follow the respective 
 and install the necessary tools to program it.
 
 MIMXRT1170-EVK is the default configuration.
-To change the board, update [set_project_env.sh](bsp/zephyr-app/vee/scripts/set_project_env.sh) or [set_project_env.bat](bsp/zephyr-app/vee/scripts/set_project_env.bat) depending on your OS to set the new `BOARD` environment variable.
-(e.g. `export BOARD=frdm_mcxn947/mcxn947/cpu0)` for FRDM-MCXN947).
+To change the board, pass its **board name** to Gradle with `-Pveeport.board=<name>`.
+Board names are defined by this project in [gradle/boards.gradle.kts](gradle/boards.gradle.kts),
+and each one maps to a Zephyr board:
 
-Then update the architecture inside [libs.versions.toml](gradle/libs.versions.toml) depending on your board:
-* MIMXRT1170-EVK: `architecture = { group = "com.microej.architecture.CM7.CM7hardfp_GCC48", name = "flopi7G26", version = "8.3.0" }`
-* FRDM-MCXN947 or nRF54L15 DK: `architecture = { group = "com.microej.architecture.CM4.CM4hardfp_GCC48", name = "flopi4G25", version = "8.3.0" }`
+| `-Pveeport.board` | board |
+|---|---|
+| `mimxrt1170` | NXP MIMXRT1170-EVK (default) |
+| `mcxn947` | NXP FRDM-MCXN947 |
+| `nrf54l15` | Nordic nRF54L15 DK |
+
+For example, to build and flash the FRDM-MCXN947:
+
+```sh
+./gradlew :app:hello-world:runOnDevice -Pveeport.board=mcxn947
+```
+
+Passing `-Pveeport.board` on every command gets tedious. To pin a board for your whole checkout,
+create a `gradle.properties` file at the root of the project:
+
+```properties
+veeport.board=nrf54l15
+```
+
+Gradle reads it on every invocation, so this works both from the command line and from an IDE.
+A `-Pveeport.board` on the command line still takes precedence.
+
+
+After a board change, run [bsp/zephyr-app/vee/scripts/clean.sh](bsp/zephyr-app/vee/scripts/clean.sh)
+before you build. `west build -p=auto` does not always reconfigure an existing Zephyr build directory
+for the new board, and a build directory that keeps the previous board produces the same wrong-board
+flash.
 
 Have a look at your board configuration on the VEE Port:
 
 #### NXP MIMXRT1170-EVK configuration
 
-* [mimxrt1170_evk_mimxrt1176_cm7.cmake](bsp/zephyr-app/main/boards/mimxrt1170_evk_mimxrt1176_cm7.cmake)
-  * `BOARD_FLASH_RUNNER` is set to `linkserver`, can be set to `jlink` if needed.
-  * `nxp,enet1g.overlay` added to use the [1G Ethernet instance](https://docs.zephyrproject.org/latest/boards/nxp/mimxrt1170_evk/doc/index.html#enet1g-driver).
+* [zephyr/boards/microej/mimxrt1170_evk](bsp/zephyr-app/zephyr/boards/microej/mimxrt1170_evk) — board extension
+  (see [Board extensions](#board-extensions)) tying `NET_L2_ETHERNET` to the 1G Ethernet controller.
 * [mimxrt1170_evk_mimxrt1176_cm7.conf](bsp/zephyr-app/main/boards/mimxrt1170_evk_mimxrt1176_cm7.conf)
   * `FatFS` File System deployed in the SD Card.
     * Set FS read/write buffer to 32KB (4 worker dedicated to the FS implementation -> 128KB used for read/write buffers).
@@ -167,7 +196,8 @@ Have a look at your board configuration on the VEE Port:
     * **Default configuration** Download: 410 KB/s, Write: 250 KB/s
   * Disable Bluetooth Abstraction Layer.
 * [mimxrt1170_evk_mimxrt1176_cm7.overlay](bsp/zephyr-app/main/boards/mimxrt1170_evk_mimxrt1176_cm7.overlay)
-  * Set a unique MAC address for the 1G Ethernet instance.
+  * Swaps to the [1G Ethernet instance](https://docs.zephyrproject.org/latest/boards/nxp/mimxrt1170_evk/doc/index.html#enet1g-driver)
+    in place of the 10/100 one, with a MAC address derived from the SoC unique ID.
   * Configuration if FS is deployed in RAM.
   * Configure 1 UART interfaces as follows:
   
@@ -177,8 +207,6 @@ Have a look at your board configuration on the VEE Port:
 
 #### NXP FRDM-MCXN947 configuration
 
-* [frdm_mcxn947_mcxn947_cpu0.cmake](bsp/zephyr-app/main/boards/frdm_mcxn947_mcxn947_cpu0.cmake)
-  * `BOARD_FLASH_RUNNER` is set to `linkserver`, can be set to `jlink` if needed.
 * [frdm_mcxn947_mcxn947_cpu0.conf](bsp/zephyr-app/main/boards/frdm_mcxn947_mcxn947_cpu0.conf)
   * `FatFS` File System deployed in the SD Card.
     * Set FS read/write buffer to 8KB (4 worker dedicated to the FS implementation -> 32KB used for read/write buffers).
@@ -199,11 +227,9 @@ Have a look at your board configuration on the VEE Port:
 
 #### Nordic nRF54L15 DK configuration
 
-* [nrf54l15dk_nrf54l15_cpuapp.cmake](bsp/zephyr-app/main/boards/nrf54l15dk_nrf54l15_cpuapp.cmake)
 * [nrf54l15dk_nrf54l15_cpuapp.conf](bsp/zephyr-app/main/boards/nrf54l15dk_nrf54l15_cpuapp.conf)
   * Disable MicroAI Abstraction Layer -> Takes too much RAM.
   * Disable NET/SSL Abstraction Layer -> No Ethernet instance.
-  * Disable Security Abstraction Layer -> Conflict with Bluetooth Abstraction Layer.
   * `LittleFS` File System deployed in the internal flash.
     * Increase littleFS buffers size.
     * Set FS read/write buffer to 4KB (4 worker dedicated to the FS implementation -> 16KB used for read/write buffers).
@@ -224,7 +250,7 @@ Have a look at your board configuration on the VEE Port:
 
 Generic configuration that is applied to all the board are located inside [prj.conf](bsp/zephyr-app/main/prj.conf). 
 
-For example, it sets the main stack size to 4KB, the heap memory pool to 2KB and the compiler optimizations to -O2.
+For example, it sets the main stack size to 8KB, the heap memory pool to 2KB and the compiler optimizations to -O2.
 
 ### Build and Run the Application
 
@@ -296,24 +322,63 @@ $ west flash
 
 ### How to configure a new board
 
-If you want to use this VEE Port with a board that is not part of the sample boards:
+To use this VEE Port with a board that is not one of the three samples:
 
-* Follow [Zephyr board documentation](https://docs.zephyrproject.org/latest/boards/index.html) to set up the board and install the necessary tools to program it.
-* Select the architecture that corresponds to your board and update it on [libs.versions.toml](gradle/libs.versions.toml) file. See [MicroEJ supported Architectures](https://developer.microej.com/mej32-supported-embedded-runtime-architectures/).
-* Add missing Zephyr modules:
-  * Your board could require additional Zephyr modules (e.g. `hal-nxp` for NXP boards).
-  * Add the Zephyr modules to [bsp/zephyr-app/west.yml](bsp/zephyr-app/west.yml).
-  * Run the `west update` command to fetch the newly added modules.
-* Add the board configuration files on [bsp/zephyr-app/main/boards](bsp/zephyr-app/main/boards) folder:
-  * Configuration file names must start with the Zephyr Board identifier so that Zephyr takes it into account during the build (e.g. `mimxrt1170_evk_mimxrt1176_cm7` for MIMXRT1170-EVK).
-  * **Required file**
-    * `<board_name>.cmake`: Set specific BSP configurations such as the flash runner, and extended overlays. 
-    It also allows the user to specify specific Abstraction Layers properties that will overwrite Zephyr Abstraction Layer ones (see [Board specific configuration](#board-specific-configuration) section).
-    You can start from the example configuration for the MIMXRT1170 found in [mimxrt1170_evk_mimxrt1176_cm7.cmake](bsp/zephyr-app/main/boards/mimxrt1170_evk_mimxrt1176_cm7.cmake) file.    
-  * **Optional files**
-    * `<board_name>.overlay`: Extends your board device tree.
-    * `<board_name>.conf`: Set specific KConfigs.
-* Update [set_project_env.sh](bsp/zephyr-app/vee/scripts/set_project_env.sh) or [set_project_env.bat](bsp/zephyr-app/vee/scripts/set_project_env.bat) depending on your OS to set the new `BOARD` environment variable.
+**1. Set up the board.** Follow the [Zephyr board documentation](https://docs.zephyrproject.org/latest/boards/index.html)
+to get it supported and its programming tools installed. Note its Zephyr board identifier, and pick the
+[MicroEJ Architecture](https://developer.microej.com/mej32-supported-embedded-runtime-architectures/) that
+matches its core.
+
+**2. Register the board in the matrix** in [gradle/boards.gradle.kts](gradle/boards.gradle.kts) -- one entry,
+three values:
+
+```kotlin
+"mcxn947" to mapOf(
+    "zephyr" to "frdm_mcxn947/mcxn947/cpu0",
+    "arch"   to "com.microej.architecture.CM4.CM4hardfp_GCC48:flopi4G25",
+    "group"  to "com.microej.veeport.zephyr_mcxn947_frdm"
+)
+```
+
+The key is the name you will pass to `-Pveeport.board`. `arch` is the Architecture `<group>:<name>`; its
+version is shared by every board and stays in [libs.versions.toml](gradle/libs.versions.toml). `group` is
+the group this VEE Port gets published under.
+
+**3. Add the Zephyr modules your board needs** -- `hal_nxp` for NXP boards, `hal_nordic` for Nordic ones --
+to [bsp/zephyr-app/west.yml](bsp/zephyr-app/west.yml), then run `west update` to fetch them.
+
+**4. Add the board configuration files** to [bsp/zephyr-app/main/boards](bsp/zephyr-app/main/boards). They
+are found by file name, and that name is the Zephyr board identifier with every `/` replaced by `_`, so
+`frdm_mcxn947/mcxn947/cpu0` becomes `frdm_mcxn947_mcxn947_cpu0`:
+
+| file | required | what it does |
+|---|---|---|
+| `<zephyr_board>.conf` | no | board-specific Kconfig options |
+| `<zephyr_board>.overlay` | no | device tree overlay |
+
+If the board needs a Kconfig *default* rather than a fixed value — one conditional on the hardware
+actually present — add a board extension under [bsp/zephyr-app/zephyr/boards](bsp/zephyr-app/zephyr/boards).
+See [Board extensions](#board-extensions).
+
+### Board extensions
+
+A `<board_target>.conf` can only *assign* a Kconfig symbol. Some board settings need to be a **default
+conditional on the hardware present**, which only a board `Kconfig.defconfig` can express. For those, this
+VEE Port extends the upstream Zephyr board with a `board.yml` declaring `extend: <upstream board>`, rather
+than redefining the board — see Zephyr's
+[Board Porting Guide](https://docs.zephyrproject.org/latest/hardware/porting/board_porting.html#extend-board).
+Extensions live under [bsp/zephyr-app/zephyr/boards](bsp/zephyr-app/zephyr/boards) and are found through the `board_root`
+setting in [bsp/zephyr-app/zephyr/module.yml](bsp/zephyr-app/zephyr/module.yml), so no extra `west` argument
+is needed and the board target is unchanged.
+
+[zephyr/boards/microej/mimxrt1170_evk](bsp/zephyr-app/zephyr/boards/microej/mimxrt1170_evk) is the reference example, and
+is deliberately just two files — `board.yml` plus a `Kconfig.defconfig` that ties `NET_L2_ETHERNET` to the
+1G Ethernet controller the board devicetree selects. Board target, SoC selection, `_defconfig`, boot header,
+flash runners and revisions all stay upstream, and the devicetree changes stay in
+[main/boards](bsp/zephyr-app/main/boards) with the rest of the board configuration.
+
+If you do put devicetree in an extension directory, note that it contributes only **revision-suffixed**
+overlays — a non-revision `<board_target>.overlay` there is silently ignored.
 
 ### How to Customize the VEE Port
 
@@ -322,31 +387,69 @@ For detailed information, have a look at Zephyr's [Application Development](http
 
 #### Board selection
 
-The board selection is done by setting an environment variable in the provided scripts : ``vee/scripts/set_project_env.bat/sh``.
+You pick the board once, with the `veeport.board` Gradle property -- see [Board Setup](#board-setup) for
+the board names.
 
-This allows quick switching between different boards for the same MicroEJ Application, without any modification in the building and flashing scripts.
+Gradle looks that name up in [gradle/boards.gradle.kts](gradle/boards.gradle.kts) and gets three things
+out of it: the MicroEJ Architecture to build against, the group the VEE Port is published under, and the
+Zephyr board name -- `mcxn947` gives `frdm_mcxn947/mcxn947/cpu0`.
 
-If you wish to set the BOARD configuration via the west command line,
-it will have precedence on the environment variables, see Zephyr [Application Development](https://docs.zephyrproject.org/latest/develop/application/index.html#important-build-system-variables)
+That last one has to reach `west`, which knows nothing about Gradle. So Gradle writes it to a file:
+
+```
+-Pveeport.board=mcxn947  ->  .board.env  ->  $BOARD  ->  west build
+```
+
+`build.sh` sources `set_project_env.sh`, which reads `bsp/zephyr-app/vee/scripts/.board.env` and exports
+`BOARD`. `west build` picks `BOARD` up from there. Windows works the same way, with `build.bat` and
+`set_project_env.bat`.
+
+This is why running `./build.sh` by hand still builds for the board you chose: `.board.env` is left behind
+by the last Gradle run. If you have never run Gradle, the file does not exist and the scripts fall back to
+the board hard-coded in `set_project_env` (`mimxrt1170_evk/mimxrt1176/cm7`).
+
+Give it a board name that is not in the matrix and the build stops and tells you which names it knows.
+
+If you need to bypass all of this, `west build -b <zephyr board>` wins over `BOARD`, see Zephyr's
+[Application Development](https://docs.zephyrproject.org/latest/develop/application/index.html#important-build-system-variables)
+guide.
 
 #### Board-specific configuration
 
 Once the BOARD is set, the Zephyr Abstraction Layer project will apply several board-specific configurations:
 
-* ``bsp/zephyr-app/main/boards/<board_name>.cmake``
-    * This is where you set all the CMake cache variables for your project, for example:
-        * `SHIELD` if you have any shield connected to your board.
-        * `BOARD_FLASH_RUNNER` and `BOARD_DEBUG_RUNNER` in case you want to change the default flashing tool (jlink, linkserver, OpenOCD).
-        * `EXTRA_CONF_FILE` to customize Zephyr, see [device tree overlays](https://docs.zephyrproject.org/latest/develop/application/index.html#important-build-system-variables).
-        * `DTC_OVERLAY_FILE` and `EXTRA_DTC_OVERLAY_FILE` to customize the boards [device tree overlays](https://docs.zephyrproject.org/latest/build/dts/howtos.html#set-devicetree-overlays).
-
-* ``bsp/zephyr-app/main/boards/<board_name>.conf``
+* ``bsp/zephyr-app/main/boards/<board_target>.conf``
 
     * This Zephyr configuration file is used to set specific Kconfig options for your board. See [Kconfig](https://docs.zephyrproject.org/latest/build/kconfig/index.html).
 
-* ``bsp/zephyr-app/main/boards/<board_name>.overlay``
+* ``bsp/zephyr-app/main/boards/<board_target>.overlay``
 
     * This Zephyr overlay is used to extend your board device tree.
+
+A `_<revision>` suffix on either file restricts it to a single board revision.
+
+* ``bsp/zephyr-app/main/boards/<board_target>.ld``
+
+    * Optional. Extra linker sections for this board, passed to Zephyr's `zephyr_linker_sources(SECTIONS ...)`.
+      Use it to place a buffer in a specific memory region, for instance a framebuffer in SDRAM.
+      Unlike the two files above, this one does not support a `_<revision>` suffix.
+
+Settings that are neither Kconfig nor devicetree go through the `west` command line, via
+``vee/scripts/set_project_env.sh`` (``set_project_env.bat`` on Windows): use `WEST_BUILD_ARGS` for build
+options such as `SHIELD` or `EXTRA_DTC_OVERLAY_FILE`, and `WEST_FLASH_ARGS` to flash or debug with
+something other than the board's default runner.
+
+On Linux and macOS, in ``set_project_env.sh``:
+
+```sh
+export WEST_FLASH_ARGS="--runner jlink"
+```
+
+On Windows, in ``set_project_env.bat`` — without quotes, otherwise the variable expansion fails:
+
+```bat
+SET WEST_FLASH_ARGS=--runner jlink
+```
 
 #### How to Enable/Disable Each Module
 
@@ -357,7 +460,7 @@ Examples:
 * If your VEE Port doesn't need the FS Foundation Library, you can disable `CONFIG_MICROEJ_FS`.
 * `CONFIG_MICROEJ_VALIDATION` is only used to validate the core architecture and kernel implementation.
 
-To disable a feature, add the following line in the `bsp/zephyr-app/main/boards/<board_name>.conf` file:
+To disable a feature, add the following line in the `bsp/zephyr-app/main/boards/<board_target>.conf` file:
 
 ```
 CONFIG_MICROEJ_FS=n
@@ -367,13 +470,13 @@ CONFIG_MICROEJ_FS=n
 
 ##### File System
 
-To configure the File System, you can set the variable `CONFIG_MICROEJ_FS_BACKEND_FATFS` or `CONFIG_MICROEJ_FS_BACKEND_LITTLEFS `in `bsp/zephyr-app/main/boards/<board_name>.conf`.
+To configure the File System, you can set the variable `CONFIG_MICROEJ_FS_BACKEND_FATFS` or `CONFIG_MICROEJ_FS_BACKEND_LITTLEFS `in `bsp/zephyr-app/main/boards/<board_target>.conf`.
 
 It will automatically select the relevant File System Kconfig options in Zephyr.
 
 ##### Mount point
 
-To configure the filesystem location, you can set the variable `CONFIG_MICROEJ_FS_MNT_POINT` in `bsp/zephyr-app/main/boards/<board_name>.conf` to four values:
+To configure the filesystem location, you can set the variable `CONFIG_MICROEJ_FS_MNT_POINT` in `bsp/zephyr-app/main/boards/<board_target>.conf` to four values:
 
 Here are some examples:
 - LITTLEFS: "/lfs"
@@ -381,7 +484,7 @@ Here are some examples:
 - SDMMC: "/SD:"
 - RAM: "/RAM:"
 
-If you use FatFS on RAM, you can modify the partition size in `bsp/zephyr-app/main/boards/<board_name>.overlay`.
+If you use FatFS on RAM, you can modify the partition size in `bsp/zephyr-app/main/boards/<board_target>.overlay`.
 
 ##### Misc
 
@@ -392,7 +495,7 @@ Furthermore, following KConfig options are available to configure the FS Abstrac
 | `CONFIG_MICROEJ_FS_WORKER_JOB_COUNT` | int | `4` | Number of workers dedicated to the FS in async_worker. |
 | `CONFIG_MICROEJ_FS_WAITING_LIST_SIZE` | int | `16` | Size of the waiting list for FS jobs in async_worker. |
 | `CONFIG_MICROEJ_FS_WORKER_STACK_SIZE` | int | `4096` | Size of the FS worker stack in bytes. |
-| `CONFIG_MICROEJ_FS_WORKER_PRIORITY` | int | `6` | Priority of the FS workers. |
+| `CONFIG_MICROEJ_FS_WORKER_PRIORITY` | int | `2` | Priority of the FS workers. |
 | `CONFIG_MICROEJ_FS_IO_BUFFER_SIZE` | int | `2048` | Size of the IO buffer in bytes used to read/write operations. There is one IO buffer allocated per worker. |
 | `CONFIG_MICROEJ_FS_PATH_LENGTH` | int | `256` | Maximum file path length in characters.  |
 
@@ -418,6 +521,13 @@ The following KConfig options are available to configure the Serial Abstraction 
 | `CONFIG_MICROEJ_SERIAL_RX_RING_BUFFER_SIZE` | int | `512` | Size in bytes of the software ring buffer per port. Data is copied from the RX buffers into this ring buffer inside the UART callback. Managed Code reads from it. Must be large enough to hold data accumulated between two Managed Code read operations to avoid overflow. |
 | `CONFIG_MICROEJ_SERIAL_TX_BUFFER_SIZE` | int | `256` | Size in bytes of the TX buffer per port. When `CONFIG_MICROEJ_SERIAL_NOCACHE_BUFFERS=n`, this buffer is not used and size could be set to `0` (Managed Code buffer is used). During a serial write, data is copied into this buffer before being handed to `uart_tx()`. Writes larger than this size are split into chunks. |
 
+#### VEE Port logging configuration
+
+The Abstraction Layers log through the Zephyr logging subsystem. Logging requires `CONFIG_LOG=y`. When this option is off, every log call compiles to nothing.
+Each Abstraction Layer has its own log level, set with one `CONFIG_MICROEJ_<LAYER>_LOG_LEVEL_<LEVEL>=y` option. The default level is `ERR`:
+- `<LAYER>` is one of `BLUETOOTH`, `CRYPTO`, `EVENT_QUEUE`, `FS`, `KF`, `MICROAI`, `NET`, `SERIAL` or `SSL`.
+- `<LEVEL>` is one of `OFF`, `ERR`, `WRN`, `INF`, `DBG` or `DEFAULT`. `DEFAULT` uses the Zephyr global level, `CONFIG_LOG_DEFAULT_LEVEL`.
+
 ## MISRA Compliance
 
 This Abstraction Layer has a list of components that are MISRA-compliant (MISRA C:2012) with some noted exceptions.
@@ -434,12 +544,14 @@ It has been verified with Cppcheck v2.13. Here is the list of deviations from MI
 
 ## Troubleshooting
 
-### Mbed TLS configuration issues when Bluetooth is activated at the same time than Security or SSL Abstraction Layers. 
+### Bluetooth Disabled When SSL Is Enabled
 
-The current configuration does not support enabling SSL or Security and Bluetooth simultaneously due to mbed TLS dependency conflicts.
+The current configuration does not support enabling the SSL and Bluetooth Abstraction Layers simultaneously, due to Mbed TLS dependency conflicts.
+When `CONFIG_MICROEJ_SSL` is enabled, the Bluetooth Abstraction Layer is not built.
 
 ---
 
 _Markdown_  
 _Copyright 2024-2026 MicroEJ Corp. All rights reserved._  
-_Use of this source code is governed by a BSD-style license that can be found with this software._ 
+_Use of this source code is governed by a BSD-style license that can be found with this software._  
+_Build: 7E4D1F7C_ 

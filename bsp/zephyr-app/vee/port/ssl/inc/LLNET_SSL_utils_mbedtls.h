@@ -1,24 +1,17 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 #ifndef LLNET_SSL_UTILS_MBEDTLS
 #define LLNET_SSL_UTILS_MBEDTLS
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif // !defined(MBEDTLS_CONFIG_FILE)
-
-#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-#include "mbedtls/build_info.h"
-#endif // (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-
-#include "mbedtls/x509_crt.h"
-#include "mbedtls/ssl.h"
+#include <mbedtls/build_info.h>
+#include <mbedtls/x509_crt.h>
+#include <mbedtls/ssl.h>
 #include "LLNET_SSL_CONSTANTS.h"
+#include "LLNET_SSL_mbedtls_configuration.h"
 #include "LLNET_SSL_ERRORS.h"
 #include "sni.h"
 #include <time.h>
@@ -29,14 +22,21 @@
 extern "C" {
 #endif
 
-#ifdef LLNET_SSL_DEBUG
-/* ---- Define the mbedtls debug level ---- */
+/*
+ * The verbosity of mbedtls follows the verbosity of this layer: its handshake traces are only
+ * useful next to the traces of the calls that drive it. Reporting an mbedtls error is not gated,
+ * because it only happens on a failure path and the logger drops the message on its own when the
+ * level does not call for it.
+ */
+#if VEEPORT_LOGGER_MODULE_LEVEL(SSL) >= VEEPORT_LOGGER_LEVEL_DBG
 #define MBEDTLS_DEBUG_LEVEL 2
-/* ---- Define the mbedtls debug printer ---- */
-#define LLNET_SSL_DEBUG_MBEDTLS_TRACE      LLNET_SSL_utils_print_mbedtls_error
-#else
-#define LLNET_SSL_DEBUG_MBEDTLS_TRACE(...) ((void)0)
 #endif
+
+#if defined(CONFIG_MBEDTLS_DEBUG)
+#define LLNET_SSL_DEBUG_MBEDTLS_TRACE(name, err) LLNET_SSL_utils_print_mbedtls_error((name), (err))
+#else
+#define LLNET_SSL_DEBUG_MBEDTLS_TRACE(name, err)
+#endif // defined(CONFIG_MBEDTLS_DEBUG)
 
 /* ---- Specific C Time function ---- */
 /*
@@ -95,27 +95,6 @@ int LLNET_SSL_utils_mbedtls_send(void *ctx, const unsigned char *buf, size_t len
  * param[in] mbedtls_error the mbedtls error code
  */
 void LLNET_SSL_utils_print_mbedtls_error(const char *function_name, int mbedtls_error);
-
-/* ---- mbedtls Random Number Generator callback function. ---- */
-
-/*
- * Random Number Generator (RNG) callback function.
- * This function generates a random data.
- * If entropy pool and CTR_DRBG AES-256 random number generator are not supported (i.e. !defined(MBEDTLS_ENTROPY_C) &&
- *!defined(MBEDTLS_CTR_DRBG_C),
- * this function calls the custom random function <code>microej_custom_random_func(uint8_t *output, size_t size)</code>
- * for random number generation.
- * You will need to define this custom random function in LLNET_SSL_mbedtls_configuration.h.
- *
- * @param[in] p_rng RNG parameter
- * @param[out] output the output buffer to fill.
- * @param[in] len the length of the output buffer.
- *
- * @return 0 on success, negative value on error.
- *
- * @see LLNET_SSL_mbedtls_configuration.h
- */
-int LLNET_SSL_utils_mbedtls_random(void *p_rng, unsigned char *output, size_t len);
 
 /* ---- Parsing certificate helper ---- */
 
@@ -198,6 +177,26 @@ void LLNET_SSL_utils_mbedtls_handle_IO_error(mbedtls_ssl_context *ssl_context, i
  * @return the corresponding MicroEJ SSL error code.
  */
 int32_t LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error);
+
+/**
+ * @brief Throws the NativeIOException of a failed SSL operation.
+ *
+ * The message reaches Java only with the generic code J_UNKNOWN_ERROR. With a specific code, the code
+ * says what failed and the message goes to a debug log.
+ *
+ * @param[in] error_code one of the codes of LLNET_SSL_ERRORS.h.
+ * @param[in] message    what failed.
+ */
+void LLNET_SSL_throw_caught_exception(int32_t error_code, const char *message);
+
+/**
+ * @brief Throws the NativeIOException of a failed Mbed TLS call, with the code
+ * LLNET_SSL_TranslateReturnCode() gives. With the generic code, the message also carries the Mbed TLS error.
+ *
+ * @param[in] mbedtls_error the error returned by the Mbed TLS call.
+ * @param[in] message       what failed.
+ */
+void LLNET_SSL_throw_mbedtls_error(int32_t mbedtls_error, const char *message);
 
 #ifdef __cplusplus
 }

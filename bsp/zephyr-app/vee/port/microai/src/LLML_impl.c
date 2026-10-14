@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -19,6 +20,8 @@
 #include "LLML_configuration.h"
 #include "LLML_microai_heap.h"
 
+VEEPORT_LOGGER_DEFINE_MODULE(LLML_LOG_MODULE)
+
 #if ((LLML_BACKEND == LLML_USE_TFLITE) || (LLML_BACKEND == LLML_USE_TFLITE_MICRO))
 #include "LLML_tensorflow_lite.h"
 #else
@@ -32,13 +35,13 @@ typedef struct {
 
 jlong LLML_IMPL_init_model_from_resource(jbyte *modelPath, jint inferenceMemoryPoolSize) {
 	java_resource resource;
-	LLML_DEBUG_TRACE("modelPath = %s, inferenceMemoryPoolSize %d\n\n", (const char *)modelPath,
-	                 inferenceMemoryPoolSize);
+	VEEPORT_LOGGER_LOG_DBG("modelPath = %s, inferenceMemoryPoolSize %d", (const char *)modelPath,
+	                       inferenceMemoryPoolSize);
 	int32_t ret = LLMJVM_getJavaResource((void *)modelPath, strlen((const char *)modelPath), &resource);
 	if (0 == ret) {
 		ret = LLML_CreateInterpreter((void *)resource.data, resource.size, inferenceMemoryPoolSize);
 	} else {
-		LLML_DEBUG_TRACE("cannot get model data from resource\n");
+		VEEPORT_LOGGER_LOG_ERR("cannot get model data from resource");
 	}
 	return ret;
 }
@@ -57,15 +60,14 @@ void LLML_IMPL_free_model(jlong modelBufferHandle) {
 }
 
 void LLML_IMPL_load_model_chunk(jbyte *data, jlong modelBufferHandle, jint index, jint length) {
-	LLML_DEBUG_TRACE("modelBufferHandle 0x%p index %d length %d\n", (void *)(uintptr_t)modelBufferHandle, index,
-	                 length);
+	VEEPORT_LOGGER_LOG_DBG("modelBufferHandle 0x%p index %d length %d", (void *)(uintptr_t)modelBufferHandle, index,
+	                       length);
 	memcpy((void *)((uint8_t *)(uintptr_t)modelBufferHandle + index), (void *)data, length);
 }
 
 jlong LLML_IMPL_init_model_from_buffer(jlong modelBufferHandle, jint modelByteSize, jint inferenceMemoryPoolSize) {
-	LLML_DEBUG_TRACE("modelBufferHandle 0x%p modelByteSize %d inferenceMemoryPoolSize %d\n",
-	                 (void *)(uintptr_t)modelBufferHandle,
-	                 modelByteSize, inferenceMemoryPoolSize);
+	VEEPORT_LOGGER_LOG_DBG("modelBufferHandle 0x%p modelByteSize %d inferenceMemoryPoolSize %d",
+	                       (void *)(uintptr_t)modelBufferHandle, modelByteSize, inferenceMemoryPoolSize);
 	return LLML_CreateInterpreter((void *)(uintptr_t)modelBufferHandle, modelByteSize, inferenceMemoryPoolSize);
 }
 

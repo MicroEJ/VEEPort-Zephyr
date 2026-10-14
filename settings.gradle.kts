@@ -17,7 +17,7 @@ include("vee-port:validation:event-queue")
 include("vee-port:validation:fs")
 include("vee-port:validation:microai")
 include("vee-port:validation:net")
-include("vee-port:validation:security")
+include("vee-port:validation:crypto")
 include("vee-port:validation:serial")
 include("vee-port:validation:ssl")
 // BLE test applications

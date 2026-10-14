@@ -1,0 +1,18 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
+
+if BOARD_MIMXRT1170_EVK
+
+if NETWORKING
+
+# Tie L2 Ethernet to the NIC this board actually uses. The board devicetree swaps
+# in the 1G instance (nxp,enet1g) and deletes the 10/100 one, so the upstream
+# default -- keyed off DT_HAS_NXP_ENET_ENABLED, which only ever covers the 10/100
+# node -- cannot fire. See https://github.com/zephyrproject-rtos/zephyr/issues/100110
+config NET_L2_ETHERNET
+	default y if DT_HAS_NXP_ENET1G_ENABLED && NETWORKING
+
+endif # NETWORKING
+
+endif # BOARD_MIMXRT1170_EVK

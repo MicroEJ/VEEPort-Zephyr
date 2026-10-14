@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -18,6 +19,8 @@
 #include <sni.h>
 #include "LLNET_configuration.h"
 #include "async_select.h"
+#include "veeport_logger.h"
+#include "veeport_errors.h"
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netinet/in.h>
@@ -37,13 +40,14 @@ extern "C" {
 	#error "Version of the configuration file LLNET_configuration.h is not compatible with this implementation."
 #endif
 
-// Define LLNET_DEBUG in LLNET_configuration.h to enable network debug trace
-#ifdef LLNET_DEBUG
-	#include <stdio.h>
-	#define LLNET_DEBUG_TRACE   printf
-#else
-	#define LLNET_DEBUG_TRACE(...) ((void)0)
-#endif
+/**
+ * @brief Log module shared by every source file of the Network Abstraction Layer.
+ *
+ * One source file registers the module with VEEPORT_LOGGER_DEFINE_MODULE() and the
+ * others declare it with VEEPORT_LOGGER_DECLARE_MODULE(). The verbosity is set with
+ * CONFIG_MICROEJ_NET_LOG_LEVEL.
+ */
+#define LLNET_LOG_MODULE microej_net, VEEPORT_LOGGER_MODULE_LEVEL(NET)
 
 /**
  * @brief External function used to retrieve currentTime (defined in LLMJVM)
@@ -104,13 +108,15 @@ int32_t LLNET_set_non_blocking(int32_t fd);
 int32_t LLNET_map_to_java_exception(int32_t err);
 
 /**
- * @brief get the error message describing the given error code.
+ * @brief Throws the NativeIOException that reports a failed socket call.
  *
- * @param[in] error the error code returned by a BSD-like function.
+ * The error code is the one of LLNET_ERRORS.h that LLNET_map_to_java_exception() gives for the
+ * given errno. When no specific code exists, the exception carries the errno and its description in
+ * its message.
  *
- * @return the error message describing the given error code.
+ * @param[in] fd_errno the errno set by a BSD-like function.
  */
-const char * LLNET_get_socket_error_msg(int32_t error);
+void LLNET_throw_socket_error(int32_t fd_errno);
 
 #if CONFIG_NET_IPV6
 

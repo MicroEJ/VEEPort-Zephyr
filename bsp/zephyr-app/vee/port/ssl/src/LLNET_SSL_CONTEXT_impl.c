@@ -1,35 +1,34 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
-#define MBEDTLS_ALLOW_PRIVATE_ACCESS
-
 /* mbedTLS include files. */
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif // !defined(MBEDTLS_CONFIG_FILE)
-
-#include "mbedtls/debug.h"
-#include "mbedtls/ssl.h"
-#include "ssl_misc.h"
-#include "mbedtls/error.h"
-#include "mbedtls/platform.h"
-
-#if defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#endif // defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
+#include <mbedtls/build_info.h>
+#include <mbedtls/debug.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/error.h>
+#include <mbedtls/platform.h>
+#include <mbedtls/pk.h>
+#include <mbedtls/x509_crt.h>
+#if MBEDTLS_VERSION_MAJOR == 3
+#include <mbedtls/psa_util.h>
+#endif
 
 /* MicroEJ include files. */
 #include "LLNET_SSL_mbedtls_configuration.h"
+#include "LLNET_SSL_mbedtls_context.h"
 #include "LLNET_SSL_utils_mbedtls.h"
 #include "LLNET_SSL_verifyCallback.h"
 #include "LLNET_SSL_CONTEXT_impl.h"
 #include "LLNET_SSL_CONSTANTS.h"
 #include "LLNET_SSL_ERRORS.h"
+
+#include <stdbool.h>
+#include <string.h>
+
+VEEPORT_LOGGER_DECLARE_MODULE(LLNET_SSL_LOG_MODULE)
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,15 +41,9 @@ extern "C" {
  * the configuration LLNET_SSL_mbedtls_configuration.h must be updated based on the one provided
  * by the new CCO version.
  */
-#if LLNET_SSL_MBEDTLS_CONFIGURATION_VERSION != 1
+#if LLNET_SSL_MBEDTLS_CONFIGURATION_VERSION != 2
 	#error \
 	"Version of the configuration file LLNET_SSL_mbedtls_configuration.h is not compatible with this implementation."
-#endif
-
-/* ----------- external function and variables ----------- */
-extern int32_t LLNET_SSL_TranslateReturnCode(int32_t mbedtls_error);
-#if defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
-extern mbedtls_ctr_drbg_context ctr_drbg;
 #endif
 
 /* ----------- Definitions  -----------*/
@@ -74,175 +67,129 @@ void microej_mbedtls_debug(void *ctx, int level, const char *file, int line,
 		}
 	}
 
-	printf("%s:%04d: |%d| %s", basename, line, level, str);
+	VEEPORT_LOGGER_LOG_DBG("%s:%04d: |%d| %s", basename, line, level, str);
 }
 
 #endif
 
+/**
+ * Parses a certificate (PEM or DER) and appends it to the given chain.
+ *
+ * @return J_SSL_NO_ERROR on success, or a J_* error code.
+ */
+static int32_t llnet_ssl_parse_certificate(mbedtls_x509_crt *chain, uint8_t *cert, int32_t len, int32_t format) {
+	int32_t ret = J_SSL_NO_ERROR;
+	if (CERT_DER_FORMAT == format) {
+		int rc = mbedtls_x509_crt_parse_der(chain, (const unsigned char *)cert, (size_t)len);
+		ret = LLNET_SSL_TranslateReturnCode(rc);
+	} else {
+		ret = LLNET_SSL_utils_mbedtls_x509_crt_parse(chain, cert, 0, (uint32_t)len);
+	}
+	return ret;
+}
+
+/**
+ * Hands the own certificate chain and private key to Mbed TLS once both have been parsed.
+ * Mbed TLS keeps a pointer to the objects, which live in the context, so this is done only once: a later
+ * setCertificate/setPrivateKey re-parses the material in place and Mbed TLS sees the new content.
+ */
+static void llnet_ssl_install_own_cert(llnet_ssl_context *ctx) {
+	if (ctx->own_cert_parsed && ctx->own_key_parsed && !ctx->own_cert_installed) {
+		int rc = mbedtls_ssl_conf_own_cert(&ctx->conf, &ctx->own_cert, &ctx->own_key);
+		if (0 != rc) {
+			LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_ssl_conf_own_cert", rc);
+			LLNET_SSL_throw_mbedtls_error(rc, "Cannot install the private key");
+			return;
+		}
+		ctx->own_cert_installed = true;
+	}
+}
+
 /* ----------- API  -----------*/
 
 int32_t LLNET_SSL_CONTEXT_IMPL_createContext(int32_t protocol, uint8_t isClientContext) {
-	LLNET_SSL_DEBUG_TRACE("%s(protocol=%d, isClientContext=%d\n", __func__, protocol, isClientContext);
+	VEEPORT_LOGGER_LOG_DBG("protocol=%d, isClientContext=%d", protocol, isClientContext);
 
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)mbedtls_calloc(1, sizeof(mbedtls_ssl_config));
-	if (NULL == conf) {
-		SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-		return SNI_IGNORED_RETURNED_VALUE;
-	}
-
-	void *p_rng = NULL;
-	mbedtls_ssl_config_init(conf);
-
-	int endpoint;
-	if (isClientContext) {
-		endpoint = MBEDTLS_SSL_IS_CLIENT;
-	} else {
-		endpoint = MBEDTLS_SSL_IS_SERVER;
-	}
-	int ret;
-	if ((ret = mbedtls_ssl_config_defaults(conf,
-	                                       endpoint,
-	                                       MBEDTLS_SSL_TRANSPORT_STREAM,
-	                                       MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
-		(void)ret;
-		LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_ssl_config_defaults", ret);
-	}
-
+	/* Mbed TLS 4 only knows TLS 1.2 and TLS 1.3; each is compiled in by its own Kconfig option. The context is
+	 * pinned to the requested version, as the SSL Foundation Library expects. */
+	mbedtls_ssl_protocol_version version;
 	switch (protocol) {
-	case SSLv3_PROTOCOL:
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-		mbedtls_ssl_conf_min_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_0);
-		mbedtls_ssl_conf_max_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_0);
-#else
-		SNI_throwNativeIOException(J_VERSION_ERROR, "Unsupported protocol version");
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-		break;
-	case TLSv1_PROTOCOL:
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-		mbedtls_ssl_conf_min_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_1);
-		mbedtls_ssl_conf_max_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_1);
-#else
-		SNI_throwNativeIOException(J_VERSION_ERROR, "Unsupported protocol version");
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-		break;
-	case TLSv1_1_PROTOCOL:
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-		mbedtls_ssl_conf_min_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_2);
-		mbedtls_ssl_conf_max_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_2);
-#else
-		SNI_throwNativeIOException(J_VERSION_ERROR, "Unsupported protocol version");
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
-		break;
+#if defined(MBEDTLS_SSL_PROTO_TLS1_2)
 	case TLSv1_2_PROTOCOL:
-#if (MBEDTLS_VERSION_NUMBER < 0x03000000)
-		mbedtls_ssl_conf_min_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
-		mbedtls_ssl_conf_max_version(conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
-#else
-		mbedtls_ssl_conf_min_tls_version(conf, MBEDTLS_SSL_VERSION_TLS1_2);
-		mbedtls_ssl_conf_max_tls_version(conf, MBEDTLS_SSL_VERSION_TLS1_2);
-#endif // (MBEDTLS_VERSION_NUMBER < 0x03000000)
+		version = MBEDTLS_SSL_VERSION_TLS1_2;
 		break;
-	default:
-		mbedtls_ssl_config_free(conf);
-		mbedtls_free(conf);
-		SNI_throwNativeIOException(J_VERSION_ERROR, "Unsupported protocol version");
-		return SNI_IGNORED_RETURNED_VALUE;
-	}
-
-#if defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
-	p_rng = &ctr_drbg;
 #endif
-	mbedtls_ssl_conf_rng(conf, LLNET_SSL_utils_mbedtls_random, p_rng);
-
-	/* It is possible to disable authentication by passing
-	 * MBEDTLS_SSL_VERIFY_NONE in the call to mbedtls_ssl_conf_authmode()
-	 */
-	mbedtls_ssl_conf_authmode(conf, MBEDTLS_SSL_VERIFY_UNSET);
-
-	/*
-	 * Change certificate verification profile, allocate and initialize new profile
-	 */
-	mbedtls_x509_crt_profile *crt_profile = (mbedtls_x509_crt_profile *)mbedtls_calloc(1,
-	                                                                                   sizeof(mbedtls_x509_crt_profile));
-	if (NULL == crt_profile) {
-		mbedtls_ssl_config_free(conf);
-		mbedtls_free(conf);
-		SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-		return SNI_IGNORED_RETURNED_VALUE;
-	}
-	/* Hashes from MD5 and above */
-	crt_profile->allowed_mds = MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_MD5) |
-	                           MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA1) |
-	                           MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_RIPEMD160) |
-	                           MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA224) |
-	                           MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA256) |
-	                           MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA384) |
-	                           MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA512);
-	/* Any PK alg    */
-	crt_profile->allowed_pks = 0xFFFFFFF;
-	/* Any curve     */
-	crt_profile->allowed_curves = 0xFFFFFFF;
-	/* RSA min lenght */
-	crt_profile->rsa_min_bitlen = 1024;
-
-	mbedtls_ssl_conf_cert_profile(conf, crt_profile);
-
-	/* Allocate and initialize certificate verify context*/
-	cert_verify_ctx *verify_ctx = (cert_verify_ctx *)mbedtls_calloc(1, sizeof(cert_verify_ctx));
-	if (NULL == verify_ctx) {
-		mbedtls_ssl_conf_cert_profile(conf, NULL);
-		mbedtls_free(crt_profile);
-		mbedtls_ssl_config_free(conf);
-		mbedtls_free(conf);
-		SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
+#if defined(MBEDTLS_SSL_PROTO_TLS1_3)
+	case TLSv1_3_PROTOCOL:
+		version = MBEDTLS_SSL_VERSION_TLS1_3;
+		break;
+#endif
+	default:
+		VEEPORT_ERRORS_throw_caught_exception(J_VERSION_ERROR);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 
-	verify_ctx->conf = conf;
-	verify_ctx->isUnTrustCA = 0;
+	llnet_ssl_context *ctx = (llnet_ssl_context *)mbedtls_calloc(1, sizeof(llnet_ssl_context));
+	if (NULL == ctx) {
+		VEEPORT_ERRORS_throw_caught_exception(J_MEMORY_ERROR);
+		return SNI_IGNORED_RETURNED_VALUE;
+	}
 
-	mbedtls_ssl_conf_verify(conf, LLNET_SSL_VERIFY_verifyCallback, (void *)verify_ctx);
+	mbedtls_ssl_config_init(&ctx->conf);
+	mbedtls_x509_crt_init(&ctx->trust_store);
+	mbedtls_x509_crt_init(&ctx->own_cert);
+	mbedtls_pk_init(&ctx->own_key);
+
+	int endpoint = (0 != isClientContext) ? MBEDTLS_SSL_IS_CLIENT : MBEDTLS_SSL_IS_SERVER;
+	int ret = mbedtls_ssl_config_defaults(&ctx->conf, endpoint, MBEDTLS_SSL_TRANSPORT_STREAM,
+	                                      MBEDTLS_SSL_PRESET_DEFAULT);
+	if (0 != ret) {
+		LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_ssl_config_defaults", ret);
+		mbedtls_ssl_config_free(&ctx->conf);
+		mbedtls_free(ctx);
+		LLNET_SSL_throw_mbedtls_error(ret, "MbedTLS config defaults failed");
+		return SNI_IGNORED_RETURNED_VALUE;
+	}
+
+	mbedtls_ssl_conf_min_tls_version(&ctx->conf, version);
+	mbedtls_ssl_conf_max_tls_version(&ctx->conf, version);
+
+#if MBEDTLS_VERSION_MAJOR == 3
+	/* Mbed TLS 3 still needs the (PSA) random generator handed to the configuration; Mbed TLS 4 uses it implicitly. */
+	mbedtls_ssl_conf_rng(&ctx->conf, mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE);
+#endif
+
+	/* Certificate verification callback: it looks the peer certificates up in the trust store. */
+	ctx->verify_ctx.trust_store = &ctx->trust_store;
+	ctx->verify_ctx.isUnTrustCA = 0;
+	mbedtls_ssl_conf_verify(&ctx->conf, LLNET_SSL_VERIFY_verifyCallback, (void *)&ctx->verify_ctx);
 
 #if MBEDTLS_DEBUG_LEVEL > 0
-	mbedtls_ssl_conf_dbg(conf, microej_mbedtls_debug, NULL);
+	mbedtls_ssl_conf_dbg(&ctx->conf, microej_mbedtls_debug, NULL);
 #if defined(MBEDTLS_DEBUG_C)
 	mbedtls_debug_set_threshold(MBEDTLS_DEBUG_LEVEL);
 #endif
 #endif
 
-	LLNET_SSL_DEBUG_TRACE("%s(method=%d) return ctx=%p\n", __func__, protocol, conf);
-	return (int32_t)conf;
+	VEEPORT_LOGGER_LOG_DBG("method=%d: return ctx=%p", protocol, ctx);
+	return (int32_t)ctx;
 }
 
 void LLNET_SSL_CONTEXT_IMPL_addTrustedCertificate(int32_t contextID, uint8_t *cert, int32_t len, int32_t format) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d)\n", __func__, contextID);
+	VEEPORT_LOGGER_LOG_DBG("context=%d", contextID);
 
 	int32_t ret = J_SSL_NO_ERROR;
-
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
-	mbedtls_x509_crt *cacert = NULL;
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
 	/* Check parameters */
-	if (NULL == conf || NULL == cert || 0 == len ||
+	if (NULL == ctx || NULL == cert || 0 == len ||
 	    ((CERT_DER_FORMAT != format) && (CERT_PEM_FORMAT != format))) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return;
 	}
 
-	if (NULL == conf->ca_chain) {
-		cacert = (mbedtls_x509_crt *)mbedtls_calloc(1, sizeof(mbedtls_x509_crt));
-		if (NULL == cacert) {
-			SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-			return;
-		}
-		mbedtls_x509_crt_init(cacert);
-	} else {
-		cacert = conf->ca_chain;
-	}
-
 	if (CERT_DER_FORMAT == format) {
-		ret = mbedtls_x509_crt_parse_der(cacert, (const unsigned char *)cert, len);
-		ret = LLNET_SSL_TranslateReturnCode(ret);
+		ret = llnet_ssl_parse_certificate(&ctx->trust_store, cert, len, format);
 	} else {
 		/* Find end of first certificate. */
 		char *first_cert_end_ptr = strstr((char *)cert, PEM_END);
@@ -251,260 +198,163 @@ void LLNET_SSL_CONTEXT_IMPL_addTrustedCertificate(int32_t contextID, uint8_t *ce
 		} else {
 			first_cert_end_ptr += sizeof(PEM_END);
 			int first_cert_len = first_cert_end_ptr - (char *)cert;
-			ret = LLNET_SSL_utils_mbedtls_x509_crt_parse(cacert, cert, 0, first_cert_len);
+			ret = LLNET_SSL_utils_mbedtls_x509_crt_parse(&ctx->trust_store, cert, 0, (uint32_t)first_cert_len);
 		}
 	}
 
 	if (J_SSL_NO_ERROR != ret) {
-		mbedtls_x509_crt_free(cacert);
-		mbedtls_free(cacert);
-		SNI_throwNativeIOException(LLNET_SSL_TranslateReturnCode(ret), "Certificate parsing error");
+		/* A failed parse leaves the chain as it was: the certificates already trusted stay valid. */
+		LLNET_SSL_throw_caught_exception(ret, "Certificate parsing error");
 		return;
 	}
 
-	if (NULL == conf->ca_chain) {
-		mbedtls_ssl_conf_ca_chain(conf, cacert, NULL);
+	if (!ctx->trust_store_installed) {
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, &ctx->trust_store, NULL);
+		ctx->trust_store_installed = true;
 	}
 }
 
 void LLNET_SSL_CONTEXT_IMPL_clearTrustStore(int32_t contextID) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d)\n", __func__, contextID);
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
+	VEEPORT_LOGGER_LOG_DBG("context=%d", contextID);
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
-	if (NULL != conf) {
-		if (NULL != conf->ca_chain) {
-			void *chain_ptr = (void *)conf->ca_chain;
-			mbedtls_ssl_conf_ca_chain(conf, NULL, NULL);
-			mbedtls_x509_crt_free(chain_ptr);
-			mbedtls_free(chain_ptr);
-		}
+	if (NULL != ctx) {
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, NULL, NULL);
+		ctx->trust_store_installed = false;
+		mbedtls_x509_crt_free(&ctx->trust_store);
+		mbedtls_x509_crt_init(&ctx->trust_store);
 	}
 }
 
 void LLNET_SSL_CONTEXT_IMPL_clearKeyStore(int32_t contextID) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d)\n", __func__, contextID);
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
+	VEEPORT_LOGGER_LOG_DBG("context=%d", contextID);
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
-	/* Free the private key */
-	if (NULL != conf) {
-		if (NULL != conf->key_cert) {
-			if (NULL != conf->key_cert->key) {
-				mbedtls_pk_free(conf->key_cert->key);
-				mbedtls_free(conf->key_cert->key);
-			}
-		}
+	/* Free the private key and its certificate chain in place: Mbed TLS keeps pointing at the (now empty)
+	 * objects, which a later setCertificate/setPrivateKey refills. */
+	if (NULL != ctx) {
+		mbedtls_pk_free(&ctx->own_key);
+		mbedtls_pk_init(&ctx->own_key);
+		ctx->own_key_parsed = false;
+		mbedtls_x509_crt_free(&ctx->own_cert);
+		mbedtls_x509_crt_init(&ctx->own_cert);
+		ctx->own_cert_parsed = false;
 	}
 }
 
 void LLNET_SSL_CONTEXT_IMPL_setCertificate(int32_t contextID, uint8_t *cert, int32_t len, int32_t format) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d)\n", __func__, contextID);
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
-	mbedtls_x509_crt *clicert;
-	bool key_cert_allocated = false;
-	int ret;
+	VEEPORT_LOGGER_LOG_DBG("context=%d", contextID);
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
 	/* Check parameters */
-	if (NULL == conf || NULL == cert || 0 == len ||
+	if (NULL == ctx || NULL == cert || 0 == len ||
 	    ((CERT_DER_FORMAT != format) && (CERT_PEM_FORMAT != format))) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return;
 	}
 
-	/* Allocate a new keycert if needed, otherwise free the existing certificate */
-	if (NULL == conf->key_cert) {
-		conf->key_cert = mbedtls_calloc(1, sizeof(mbedtls_ssl_key_cert));
-		if (NULL == conf->key_cert) {
-			SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-			return;
-		}
-		key_cert_allocated = true;
-	} else {
-		mbedtls_x509_crt_free(conf->key_cert->cert);
-		mbedtls_free(conf->key_cert->cert);
-	}
+	/* The LLNET_SSL_* interface supports a single credential: replace the existing chain, in place. */
+	mbedtls_x509_crt_free(&ctx->own_cert);
+	mbedtls_x509_crt_init(&ctx->own_cert);
+	ctx->own_cert_parsed = false;
 
-	/* The LLNET_SSL_* interface does not support multiple keycert (only one private key can be set) */
-	conf->key_cert->next = NULL;
-
-	/* Allocate a new certificate */
-	clicert = mbedtls_calloc(1, sizeof(mbedtls_x509_crt));
-	if (NULL == clicert) {
-		if (key_cert_allocated) {
-			mbedtls_free(conf->key_cert);
-		}
-		SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-		return;
-	}
-
-	/* Try to parse the certificate */
-	mbedtls_x509_crt_init(clicert);
-	if (CERT_DER_FORMAT == format) {
-		ret = mbedtls_x509_crt_parse_der(clicert, (const unsigned char *)cert, len);
-		ret = LLNET_SSL_TranslateReturnCode(ret);
-	} else {
-		ret = LLNET_SSL_utils_mbedtls_x509_crt_parse(clicert, cert, 0, len);
-	}
-
-	/* Check parse result */
+	int32_t ret = llnet_ssl_parse_certificate(&ctx->own_cert, cert, len, format);
 	if (J_SSL_NO_ERROR != ret) {
-		/* Free the certificate */
-		mbedtls_x509_crt_free(clicert);
-		mbedtls_free(clicert);
-		if (key_cert_allocated) {
-			mbedtls_free(conf->key_cert);
-		}
-		SNI_throwNativeIOException(LLNET_SSL_TranslateReturnCode(ret), "Certificate parsing error");
+		mbedtls_x509_crt_free(&ctx->own_cert);
+		mbedtls_x509_crt_init(&ctx->own_cert);
+		LLNET_SSL_throw_caught_exception(ret, "Certificate parsing error");
 		return;
 	}
+	ctx->own_cert_parsed = true;
 
-	/* Link the certificate in the keycert */
-	conf->key_cert->cert = clicert;
+	llnet_ssl_install_own_cert(ctx);
 }
 
 void LLNET_SSL_CONTEXT_IMPL_setPrivateKey(int32_t contextID, uint8_t *privateKey, int32_t len, uint8_t *password,
                                           int32_t passwordLen) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d)\n", __func__, contextID);
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
-	bool key_cert_allocated = false;
-	int ret = 0;
-#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-	mbedtls_pk_context *key;
-#endif // (MBEDTLS_VERSION_NUMBER >= 0x03000000)
+	VEEPORT_LOGGER_LOG_DBG("context=%d", contextID);
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
 	/* Check parameters */
-	if (NULL == conf || NULL == privateKey || 0 >= len || NULL == password || 0 >= passwordLen) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+	if (NULL == ctx || NULL == privateKey || 0 >= len || NULL == password || 0 >= passwordLen) {
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return;
 	}
 
-	/* Allocate a new keycert if needed, otherwise free the existing private key */
-	if (NULL == conf->key_cert) {
-		conf->key_cert = mbedtls_calloc(1, sizeof(mbedtls_ssl_key_cert));
-		if (NULL == conf->key_cert) {
-			SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-			return;
-		}
-		key_cert_allocated = true;
-	} else {
-		mbedtls_pk_free(conf->key_cert->key);
-		mbedtls_free(conf->key_cert->key);
-	}
+	/* The LLNET_SSL_* interface supports a single credential: replace the existing key, in place. */
+	mbedtls_pk_free(&ctx->own_key);
+	mbedtls_pk_init(&ctx->own_key);
+	ctx->own_key_parsed = false;
 
-	/* The LLNET_SSL_* interface does not support multiple keycert (only one private key can be set) */
-	conf->key_cert->next = NULL;
-
-	/* Allocate a new private key */
-	key = mbedtls_calloc(1, sizeof(mbedtls_pk_context));
-	if (NULL == key) {
-		if (key_cert_allocated) {
-			mbedtls_free(conf->key_cert);
-		}
-		SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-		return;
-	}
-
-	/* Try to parse the private key */
-	mbedtls_pk_init(key);
-#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-	ret = mbedtls_pk_parse_key(key,
-	                           (uint8_t *)privateKey, (uint32_t)len,
-	                           password, (uint32_t)passwordLen, mbedtls_ctr_drbg_random, &ctr_drbg);
+	/* Since Mbed TLS 4 the parser takes its randomness from PSA implicitly; Mbed TLS 3 takes it as arguments. */
+#if MBEDTLS_VERSION_MAJOR == 3
+	int ret = mbedtls_pk_parse_key(&ctx->own_key, (const unsigned char *)privateKey, (size_t)len,
+	                               (const unsigned char *)password, (size_t)passwordLen,
+	                               mbedtls_psa_get_random, MBEDTLS_PSA_RANDOM_STATE);
 #else
-	ret = mbedtls_pk_parse_key(key, privateKey, (uint32_t)len, password, (uint32_t)passwordLen);
-#endif // (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-
+	int ret = mbedtls_pk_parse_key(&ctx->own_key, (const unsigned char *)privateKey, (size_t)len,
+	                               (const unsigned char *)password, (size_t)passwordLen);
+#endif
 	if (0 != ret) {
-		LLNET_SSL_DEBUG_TRACE("%s: error: %d\n", __func__, ret);
-		/* Free the private key */
-		mbedtls_pk_free(key);
-#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-		mbedtls_ctr_drbg_free(&ctr_drbg);
-#endif // (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-		mbedtls_free(key);
-		if (key_cert_allocated) {
-			mbedtls_free(conf->key_cert);
-		}
-		SNI_throwNativeIOException(LLNET_SSL_TranslateReturnCode(ret), "Private key parsing error");
+		LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_pk_parse_key", ret);
+		mbedtls_pk_free(&ctx->own_key);
+		mbedtls_pk_init(&ctx->own_key);
+		LLNET_SSL_throw_mbedtls_error(ret, "Private key parsing error");
 		return;
 	}
+	ctx->own_key_parsed = true;
 
-	/* Link the private key in the keycert */
-	conf->key_cert->key = key;
+	llnet_ssl_install_own_cert(ctx);
 }
 
 int32_t LLNET_SSL_CONTEXT_IMPL_initChainBuffer(int32_t contextID, int32_t nbChainCerts, int32_t chainCertsTotalSize) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d, nbChainCerts=%d, chainCertsTotalSize=%d)\n", __func__, contextID,
-	                      nbChainCerts, chainCertsTotalSize);
+	VEEPORT_LOGGER_LOG_DBG("context=%d, nbChainCerts=%d, chainCertsTotalSize=%d", contextID, nbChainCerts,
+	                       chainCertsTotalSize);
 	return 0;
 }
 
 void LLNET_SSL_CONTEXT_IMPL_addChainCertificate(int32_t contextID, uint8_t *cert, int32_t len, int32_t format,
                                                 int32_t chainBufferSize) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d)\n", __func__, contextID);
+	VEEPORT_LOGGER_LOG_DBG("context=%d", contextID);
 
 	(void)chainBufferSize;
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
-	int ret;
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
 	/* Check parameters */
-	if (NULL == conf || NULL == cert || 0 == len ||
+	if (NULL == ctx || NULL == cert || 0 == len ||
 	    ((CERT_DER_FORMAT != format) && (CERT_PEM_FORMAT != format))) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return;
 	}
 
-	/* Try to parse the certificate, adding it to the chained list of certificated from keycert */
-	if (CERT_DER_FORMAT == format) {
-		ret = mbedtls_x509_crt_parse_der(conf->key_cert->cert, cert, (uint32_t)len);
-		ret = LLNET_SSL_TranslateReturnCode(ret);
-	} else {
-		ret = LLNET_SSL_utils_mbedtls_x509_crt_parse(conf->key_cert->cert, cert, 0, len);
+	/* The chain hangs below the own certificate, which must have been set first. */
+	if (!ctx->own_cert_parsed) {
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
+		return;
 	}
 
-	/* Check parse result */
+	/* Parse the certificate, appending it to the own certificate chain. */
+	int32_t ret = llnet_ssl_parse_certificate(&ctx->own_cert, cert, len, format);
 	if (J_SSL_NO_ERROR != ret) {
-		SNI_throwNativeIOException(LLNET_SSL_TranslateReturnCode(ret), "Certificate parsing error");
+		LLNET_SSL_throw_caught_exception(ret, "Certificate parsing error");
 	}
 }
 
 void LLNET_SSL_CONTEXT_IMPL_freeContext(int32_t contextID) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d)\n", __func__, contextID);
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
+	VEEPORT_LOGGER_LOG_DBG("context=%d", contextID);
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
-	if (NULL != conf) {
-		if (NULL != conf->ca_chain) {
-			void *chain_ptr = (void *)conf->ca_chain;
-			mbedtls_ssl_conf_ca_chain(conf, NULL, NULL);
-			mbedtls_x509_crt_free(chain_ptr);
-			mbedtls_free(chain_ptr);
-		}
+	if (NULL != ctx) {
+		/* Release the references held by the configuration before freeing the objects behind them. */
+		mbedtls_ssl_conf_ca_chain(&ctx->conf, NULL, NULL);
+		mbedtls_ssl_conf_verify(&ctx->conf, NULL, NULL);
+		mbedtls_ssl_config_free(&ctx->conf);
 
-		if (NULL != conf->p_vrfy) {
-			void *vrfy_ptr = (void *)conf->p_vrfy;
-			mbedtls_ssl_conf_verify(conf, NULL, NULL);
-			mbedtls_free(vrfy_ptr);
-		}
+		mbedtls_x509_crt_free(&ctx->trust_store);
+		mbedtls_x509_crt_free(&ctx->own_cert);
+		mbedtls_pk_free(&ctx->own_key);
 
-		if (NULL != conf->cert_profile) {
-			void *profile_ptr = (void *)conf->cert_profile;
-			mbedtls_ssl_conf_cert_profile(conf, NULL);
-			mbedtls_free(profile_ptr);
-		}
-
-		if (NULL != conf->key_cert) {
-			if (NULL != conf->key_cert->key) {
-				mbedtls_pk_free(conf->key_cert->key);
-				mbedtls_free(conf->key_cert->key);
-			}
-
-			if (NULL != conf->key_cert->cert) {
-				mbedtls_x509_crt_free(conf->key_cert->cert);
-				mbedtls_free(conf->key_cert->cert);
-			}
-		}
-
-		mbedtls_ssl_config_free(conf);
-		mbedtls_free((void *)conf);
+		mbedtls_free((void *)ctx);
 	}
 }
 

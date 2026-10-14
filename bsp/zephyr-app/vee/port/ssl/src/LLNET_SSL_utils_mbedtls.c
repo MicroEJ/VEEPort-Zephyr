@@ -1,28 +1,14 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif // !defined(MBEDTLS_CONFIG_FILE)
-
-#if defined(MBEDTLS_PLATFORM_C)
-#include "mbedtls/platform.h"
-#else
-#include <stdlib.h>
-#define mbedtls_calloc    calloc
-#define mbedtls_free      free
-#endif
-
-#include "mbedtls/error.h"
-#include "mbedtls/net_sockets.h"
-#include "mbedtls/x509_crt.h"
-#if defined(MBEDTLS_CTR_DRBG_C)
-#include "mbedtls/ctr_drbg.h"
-#endif
+#include <mbedtls/build_info.h>
+#include <mbedtls/platform.h>
+#include <mbedtls/error.h>
+#include <mbedtls/net_sockets.h>
+#include <mbedtls/x509_crt.h>
 #include "LLNET_Common.h"
 #include "LLNET_SSL_mbedtls_configuration.h"
 #include "LLNET_SSL_utils_mbedtls.h"
@@ -32,6 +18,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+
+VEEPORT_LOGGER_DECLARE_MODULE(LLNET_SSL_LOG_MODULE)
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,7 +98,7 @@ time_t LLNET_SSL_utils_custom_mbedtls_time(time_t *time) {
 /* ---- Specific net layer connection functions ---- */
 
 int LLNET_SSL_utils_mbedtls_recv(void *ctx, unsigned char *buf, size_t len) {
-	LLNET_SSL_DEBUG_TRACE("%s(ctx=%d, length=%d)\n", __func__, (int)ctx, (int)len);
+	VEEPORT_LOGGER_LOG_DBG("ctx=%d, length=%d", (int)ctx, (int)len);
 	int recv_bytes = -1;
 
 	int fd = *((int *)ctx);
@@ -122,8 +110,8 @@ int LLNET_SSL_utils_mbedtls_recv(void *ctx, unsigned char *buf, size_t len) {
 	recv_bytes = llnet_recv(fd, buf, len, 0);
 	int netError = llnet_errno(fd);
 
-	LLNET_SSL_DEBUG_TRACE("%s RECV (ctx=%d, length=%d) bytes read=%d, netError=%d\n", __func__, (int)ctx, (int)len,
-	                      (int)recv_bytes, (int)netError);
+	VEEPORT_LOGGER_LOG_DBG("RECV (ctx=%d, length=%d) bytes read=%d, netError=%d", (int)ctx, (int)len, (int)recv_bytes,
+	                       (int)netError);
 
 	if (recv_bytes < 0) {
 		if (EPIPE == netError || ECONNRESET == netError) {
@@ -141,7 +129,7 @@ int LLNET_SSL_utils_mbedtls_recv(void *ctx, unsigned char *buf, size_t len) {
 }
 
 int LLNET_SSL_utils_mbedtls_send(void *ctx, const unsigned char *buf, size_t len) {
-	LLNET_SSL_DEBUG_TRACE("%s(ctx=%d, length=%d)\n", __func__, (int)ctx, (int)len);
+	VEEPORT_LOGGER_LOG_DBG("ctx=%d, length=%d", (int)ctx, (int)len);
 	int size_sent = -1;
 
 	int fd = *((int *)ctx);
@@ -152,8 +140,8 @@ int LLNET_SSL_utils_mbedtls_send(void *ctx, const unsigned char *buf, size_t len
 	size_sent = llnet_send(fd, buf, len, 0);
 	int netError = llnet_errno(fd);
 
-	LLNET_SSL_DEBUG_TRACE("%s SEND (ctx=%d, length=%d) bytes sent=%d netError=%d\n", __func__, (int)ctx, (int)len,
-	                      (int)size_sent, (int)netError);
+	VEEPORT_LOGGER_LOG_DBG("SEND (ctx=%d, length=%d) bytes sent=%d netError=%d", (int)ctx, (int)len, (int)size_sent,
+	                       (int)netError);
 
 	if (size_sent < 0) {
 		if (netError == EPIPE || netError == ECONNRESET) {
@@ -171,26 +159,17 @@ int LLNET_SSL_utils_mbedtls_send(void *ctx, const unsigned char *buf, size_t len
 }
 
 /* ---- mbedtls custom function for error printing ---- */
-
+#if defined(CONFIG_MBEDTLS_DEBUG)
 void LLNET_SSL_utils_print_mbedtls_error(const char *name, int err) {
 	char buf[128];
 	mbedtls_strerror(err, buf, sizeof (buf));
-	printf("%s() failed: -0x%04x (%d): %s\r\n", name, -err, err, buf);
+	VEEPORT_LOGGER_LOG_DBG("%s() failed: -0x%04x (%d): %s", name, -err, err, buf);
 }
 
-/* ---- custom random number generator callback function. ---- */
-
-int LLNET_SSL_utils_mbedtls_random(void *p_rng, unsigned char *output, size_t len) {
-#if defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
-	return mbedtls_ctr_drbg_random(p_rng, output, len);
-#else
-	(void)p_rng;
-	return microej_custom_random_func(output, len);
-#endif
-}
+#endif // defined(CONFIG_MBEDTLS_DEBUG)
 
 int LLNET_SSL_utils_mbedtls_x509_crt_parse(mbedtls_x509_crt *cert, uint8_t *array, uint32_t offset, uint32_t len) {
-	LLNET_SSL_DEBUG_TRACE("%s()\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 	uint8_t *strCert = microej_get_str_from_array(array, offset, &len);
 
 	if (NULL == strCert) {
@@ -239,7 +218,7 @@ void LLNET_SSL_utils_mbedtls_handle_IO_error(mbedtls_ssl_context *ssl_context, i
 	//check if timeout occurs (only on read)
 	if (check_timeout && absolute_timeout_ms < LLNET_current_time_ms()) {
 		//timeout occurs
-		SNI_throwNativeIOException(J_SOCKET_TIMEOUT, "timeout");
+		VEEPORT_ERRORS_throw_caught_exception(J_SOCKET_TIMEOUT);
 		return;
 	}
 
@@ -251,13 +230,32 @@ void LLNET_SSL_utils_mbedtls_handle_IO_error(mbedtls_ssl_context *ssl_context, i
 		async_select(fd, SELECT_WRITE, absolute_timeout_ms, callback, callback_suspend_arg);
 		return;
 	}
-	LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls operation error (ret=%d)\n", mbledtls_error);
+	LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls operation", mbledtls_error);
 
 	if (fromHandShake) {
 		/* SSL Context unusable */
 		mbedtls_ssl_session_reset(ssl_context);
 	}
-	SNI_throwNativeIOException(LLNET_SSL_TranslateReturnCode(mbledtls_error), "MbedTLS ssl operation failed");
+	LLNET_SSL_throw_mbedtls_error(mbledtls_error, "MbedTLS ssl operation failed");
+}
+
+void LLNET_SSL_throw_caught_exception(int32_t error_code, const char *message) {
+	if (J_UNKNOWN_ERROR == error_code) {
+		VEEPORT_ERRORS_throw_caught_exception_message(error_code, "%s", message);
+	} else {
+		VEEPORT_LOGGER_LOG_DBG("%s (%d)", message, (int)error_code);
+		VEEPORT_ERRORS_throw_caught_exception(error_code);
+	}
+}
+
+void LLNET_SSL_throw_mbedtls_error(int32_t mbedtls_error, const char *message) {
+	int32_t error_code = LLNET_SSL_TranslateReturnCode(mbedtls_error);
+	if (J_UNKNOWN_ERROR == error_code) {
+		VEEPORT_ERRORS_throw_caught_exception_message(error_code, "%s: %d", message, (int)mbedtls_error);
+	} else {
+		VEEPORT_LOGGER_LOG_DBG("%s: %d", message, (int)mbedtls_error);
+		VEEPORT_ERRORS_throw_caught_exception(error_code);
+	}
 }
 
 #ifdef __cplusplus

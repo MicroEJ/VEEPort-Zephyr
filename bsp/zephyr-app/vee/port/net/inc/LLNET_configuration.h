@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -14,6 +15,11 @@
 #define  LLNET_CONFIGURATION_H
 
 #include <errno.h>
+/* POSIX headers of the BSD functions the llnet_* macros below map onto (close, fcntl, ioctl, select). */
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/select.h>
+#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,11 +116,6 @@ extern "C" {
 #if defined(__linux__) || defined(__QNXNTO__)
 #define LLNET_IGNORE_SIGPIPE
 #endif // defined(__linux__) || defined(__QNXNTO__)
-
-/**
- * Enable network debug trace
- */
-//#define LLNET_DEBUG
 
 /**
  *  Alternative implementation type of LLNET_STREAMSOCKETCHANNEL_IMPL_available() function.

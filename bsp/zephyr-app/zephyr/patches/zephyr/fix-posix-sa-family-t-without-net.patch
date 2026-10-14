@@ -1,0 +1,14 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+diff --git a/include/zephyr/posix/sys/socket.h b/include/zephyr/posix/sys/socket.h
+index 13bc2aea6f2..7258a66ad0c 100644
+--- a/include/zephyr/posix/sys/socket.h
++++ b/include/zephyr/posix/sys/socket.h
+@@ -23,6 +23,7 @@ struct linger {
+ };
+ 
+ #if !defined(CONFIG_NET_NAMESPACE_COMPAT_MODE)
++typedef net_sa_family_t sa_family_t;
+ typedef uint32_t socklen_t;
+ struct msghdr;
+ struct sockaddr;

@@ -1,6 +1,7 @@
 /*
  * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 #ifndef LLSERIAL_UTILS_H
 #define LLSERIAL_UTILS_H
@@ -12,6 +13,7 @@ extern "C" {
 #include <LLSERIAL_configuration.h>
 #include <zephyr/drivers/uart.h>
 #include <sni.h>
+#include <veeport_errors.h>
 #include <stdbool.h>
 #include <stdio.h> // cppcheck-suppress [misra-c2012-21.6] Include only in debug
 #include <stdint.h>
@@ -75,16 +77,6 @@ int32_t serial_available(serial_ctx_t *serial);
  * @brief macro used to mark function calls for which the return value is ignored (MISRA compliance)
  */
 #define LLSERIAL_UNUSED_RETURN(x)                  (void)(x)
-
-/**
- * @brief throw native IO Exception with ignored return value (MISRA compliance)
- */
-#define LLSERIAL_THROW_NATIVE_IO_EXCEPTION(...)    ((void)SNI_throwNativeIOException(__VA_ARGS__))
-
-/**
- * @brief throw native Exception with ignored return value (MISRA compliance)
- */
-#define LLSERIAL_THROW_NATIVE_EXCEPTION(...)       ((void)SNI_throwNativeException(__VA_ARGS__))
 
 #define LLSERIAL_SNI_SUSPEND_WITH_CALLBACK(a, b, c) {                            \
 			do {                                                                 \

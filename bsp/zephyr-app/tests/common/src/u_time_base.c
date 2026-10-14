@@ -1,12 +1,15 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ *
+ * Build: 7E4D1F7C
  */
 
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
+#include <zephyr/sys/clock.h>
 
 #include "../inc/u_time_base.h"
 #include "../inc/bsp_util.h"

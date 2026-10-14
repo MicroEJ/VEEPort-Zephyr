@@ -1,6 +1,8 @@
 /*
  * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ *
+ * Build: 7E4D1F7C
  */
 
 // -----------------------------------------------------------------------------
@@ -62,8 +64,10 @@ static OSAL_mutex_handle_t mutex;
 /**
  * @brief Background task responsible for executing scheduled async LLMJVM_IMPL_wakeupVM().
  */
-static void * async_task(unsigned long args) {
-	VEE_MOCK_UNUSED(args);
+static void async_task(void *p1, void *p2, void *p3) {
+	VEE_MOCK_UNUSED(p1);
+	VEE_MOCK_UNUSED(p2);
+	VEE_MOCK_UNUSED(p3);
 
 	while (!async_wakeup_vm_stopped) {
 		OSAL_mutex_take(&mutex, OSAL_INFINITE_TIME);
@@ -87,8 +91,6 @@ static void * async_task(unsigned long args) {
 		// and avoid issues caused by an OSAL limitation.
 		OSAL_sleep(1);
 	}
-
-	return NULL;
 }
 
 // -----------------------------------------------------------------------------

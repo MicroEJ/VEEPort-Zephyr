@@ -1,6 +1,7 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
-
+#
+# Build: 7E4D1F7C
 
 config MICROEJ_SSL
 	bool "Build SSL Abstraction Layer"
@@ -8,14 +9,77 @@ config MICROEJ_SSL
 	default y
 
 if MICROEJ_SSL
+
+module = MICROEJ_SSL
+module-str = the MicroEJ SSL Abstraction Layer
+# Default to ERR instead of LOG_DEFAULT_LEVEL. Keep this block before the template: the first default wins.
+choice MICROEJ_SSL_LOG_LEVEL_CHOICE
+	default MICROEJ_SSL_LOG_LEVEL_ERR
+endchoice
+source "subsys/logging/Kconfig.template.log_config"
+
+config MBEDTLS
+	default y
+config MBEDTLS_PSA_CRYPTO_C
+	default y
+# The SSL Abstraction Layer parses X.509 certificates (DER and PEM) and PKCS#8 private keys itself.
+config MBEDTLS_X509_CRT_PARSE_C
+	default y
+config MBEDTLS_PEM_PARSE_C
+	default y
+config MBEDTLS_PK_PARSE_C
+	default y
 config MBEDTLS_SSL_MAX_CONTENT_LEN
 	default 16384
 config MBEDTLS_SSL_PROTO_TLS1_2
 	default y
-config MBEDTLS_ECJPAKE_C
+# Key exchanges. Mbed TLS 4.0 removed the TLS 1.2 RSA, RSA-PSK, DHE and static ECDH key exchanges, but
+# Zephyr 4.4.2's MBEDTLS_KEY_EXCHANGE_ALL_ENABLED still selects ECDH_ECDSA/ECDH_RSA, which Mbed TLS then
+# rejects at compile time ("MBEDTLS_KEY_EXCHANGE_ECDH_ECDSA_ENABLED was removed in Mbed TLS 4.0"). So the
+# surviving certificate-based (ECDHE-RSA, ECDHE-ECDSA) and PSK key exchanges are enabled one by one. They
+# depend on the PSA ECDH/ECDSA/RSA wants, which the Crypto Abstraction Layer Kconfig provides.
+config MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
 	default y
-config MBEDTLS_ECDH_C
+config MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
 	default y
-config MBEDTLS_KEY_EXCHANGE_ALL_ENABLED
+config MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
+	default y
+config MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED
+	default y
+
+# TLS 1.3, with its certificate-based (ephemeral ECDHE) key exchange. TLS 1.3 signs the handshake of an RSA
+# certificate with RSA-PSS (rsa_pss_rsae_*), which the TLS 1.2 code path never needed, so the PSS want is
+# required for any RSA credential to handshake. Zephyr's Mbed TLS configuration also turns on
+# MBEDTLS_SSL_KEEP_PEER_CERTIFICATE and the TLS 1.3 middlebox compatibility mode with this option.
+config MBEDTLS_SSL_PROTO_TLS1_3
+	default y
+config MBEDTLS_SSL_TLS1_3_KEY_EXCHANGE_MODE_EPHEMERAL_ENABLED
+	default y
+config PSA_WANT_ALG_RSA_PSS
+	default y
+
+# The TLS 1.2 key expansion (tls_prf_generic in ssl_tls.c) runs entirely through PSA: it derives the
+# key material with PSA_ALG_TLS12_PRF and imports the secret as a PSA HMAC key. There is no legacy
+# fallback, so without these wants psa_key_derivation_setup() returns PSA_ERROR_NOT_SUPPORTED,
+# surfacing as MBEDTLS_ERR_SSL_HW_ACCEL_FAILED and failing the handshake.
+config PSA_WANT_ALG_TLS12_PRF
+	default y
+config PSA_WANT_KEY_TYPE_HMAC
+	default y
+
+# Password-protected private keys (encrypted PKCS#8, PBES2). SSLContext.setPrivateKey() ->
+# mbedtls_pk_parse_key() must decrypt such a key, and in Mbed TLS 4.1 that path still goes through the
+# legacy cipher layer: mbedtls_pk_parse_key_pkcs8_encrypted_der() -> mbedtls_pkcs5_pbes2_ext()
+# (pkparse.c gate: MBEDTLS_PKCS5_C && MBEDTLS_CIPHER_PADDING_PKCS7 && MBEDTLS_CIPHER_C). Without it
+# the still-encrypted bytes are parsed as a plain key and fail with MBEDTLS_ERR_PK_KEY_INVALID_FORMAT.
+# PBES2 uses PBKDF2 (PSA HMAC, already enabled) + AES-CBC: PSA_WANT_ALG_CBC_PKCS7 defines
+# MBEDTLS_CIPHER_MODE_CBC and MBEDTLS_CIPHER_PADDING_PKCS7 through the TF-PSA-Crypto builtin
+# adjustment (crypto_adjust_config_enable_builtins.h), and MBEDTLS_CIPHER enables the cipher layer.
+# MBEDTLS_PKCS5_C depends on MBEDTLS_MD_C, which MBEDTLS_SSL_PROTO_TLS1_2 selects.
+config MBEDTLS_PKCS5_C
+	default y
+config MBEDTLS_CIPHER
+	default y
+config PSA_WANT_ALG_CBC_PKCS7
 	default y
 endif

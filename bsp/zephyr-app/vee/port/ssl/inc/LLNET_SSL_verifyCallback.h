@@ -1,22 +1,16 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ *
+ * Build: 7E4D1F7C
  */
 
 #ifndef LLNET_SSL_VERIFY_CALLBACK
 #define LLNET_SSL_VERIFY_CALLBACK
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif // MBEDTLS_CONFIG_FILE
-
-#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-#include "mbedtls/build_info.h"
-#endif // (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-
-#include "mbedtls/x509.h"
+#include <stdint.h>
+#include <mbedtls/build_info.h>
+#include <mbedtls/x509_crt.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,7 +20,7 @@ extern "C" {
  * Verify Callback context
  */
 typedef struct {
-	mbedtls_ssl_config *conf;
+	mbedtls_x509_crt *trust_store; /* head of the trusted certificate chain of the ssl context (never NULL) */
 	uint8_t isUnTrustCA;
 }cert_verify_ctx;
 

@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -9,9 +10,6 @@
  * @author MicroEJ Developer Team
  * @version 1.0.0
  */
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(LLNET_NETWORKINTERFACE, LOG_LEVEL_INF);
-
 #include <stdio.h>
 #include <string.h>
 #include <zephyr/posix/netinet/in.h>
@@ -24,6 +22,8 @@ LOG_MODULE_REGISTER(LLNET_NETWORKINTERFACE, LOG_LEVEL_INF);
 #include "LLNET_Common.h"
 #include "LLNET_ERRORS.h"
 #include "LLNET_NETWORKINTERFACE_impl.h"
+
+VEEPORT_LOGGER_DECLARE_MODULE(LLNET_LOG_MODULE)
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,36 +47,38 @@ extern "C" {
 static int8_t getMaskLen(struct in_addr netmask);
 
 int32_t LLNET_NETWORKINTERFACE_IMPL_getVMInterface(int32_t id, uint8_t *nameReturned, int32_t length) {
-	LLNET_DEBUG_TRACE("%s(id=%d)\n", __func__, id);
+	VEEPORT_LOGGER_LOG_DBG("id=%d", id);
 	int retVal = 0;
 
 	// The interface index is 1 based in zephyr whereas it is 0 based in java
 	struct net_if *net_if = net_if_get_by_index(id + 1);
 	if (!net_if) {
-		LLNET_DEBUG_TRACE("%s(id=%d) net_if_get_index returned NULL\n", __func__, id);
-		SNI_throwNativeIOException(J_EINVAL, "network interface not found");
+		VEEPORT_LOGGER_LOG_DBG("id=%d: net_if_get_index returned NULL", id);
+		VEEPORT_LOGGER_LOG_DBG("network interface not found");
+		VEEPORT_ERRORS_throw_caught_exception(J_EINVAL);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 	retVal = net_if_get_name(net_if, nameReturned, length);
 	if (retVal < 0) {
-		LLNET_DEBUG_TRACE("%s(id=%d) net_if_get_name returned %d\n", __func__, id, retVal);
+		VEEPORT_LOGGER_LOG_DBG("id=%d: net_if_get_name returned %d", id, retVal);
 		return retVal;
 	}
 	nameReturned[retVal < length ? retVal + 1 : length - 1] = '\0';
-	LLNET_DEBUG_TRACE("Found name(%s) for interface(id=%d)\n", nameReturned, id);
+	VEEPORT_LOGGER_LOG_DBG("Found name(%s) for interface(id=%d)", nameReturned, id);
 	return strlen(nameReturned);
 }
 
 int32_t LLNET_NETWORKINTERFACE_IMPL_getVMInterfaceAddress(int32_t idIf, uint8_t *ifname, int32_t ifname_length,
                                                           int32_t idAddr, int8_t *addrInfo, int32_t length) {
-	LLNET_DEBUG_TRACE("%s(id=%d)\n", __func__, idIf);
+	VEEPORT_LOGGER_LOG_DBG("id=%d", idIf);
 
 	int thisAddrCount = -1;
 	// The interface index is 1 based in zephyr whereas it is 0 based in java
 	int index = net_if_get_by_name(ifname);
 	struct net_if *net_if = net_if_get_by_index(index);
 	if (!net_if) {
-		SNI_throwNativeIOException(J_EINVAL, "network interface not found");
+		VEEPORT_LOGGER_LOG_DBG("network interface not found");
+		VEEPORT_ERRORS_throw_caught_exception(J_EINVAL);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 	struct net_if_config *net_if_config = net_if_get_config(net_if);
@@ -130,7 +132,7 @@ int32_t LLNET_NETWORKINTERFACE_IMPL_getVMInterfaceAddress(int32_t idIf, uint8_t 
 }
 
 int32_t LLNET_NETWORKINTERFACE_IMPL_getVMInterfaceAddressesCount(int32_t id, uint8_t *ifname, int32_t ifname_length) {
-	LLNET_DEBUG_TRACE("%s(id=%d)\n", __func__, id);
+	VEEPORT_LOGGER_LOG_DBG("id=%d", id);
 
 	ARG_UNUSED(ifname);
 	ARG_UNUSED(ifname_length);
@@ -139,7 +141,8 @@ int32_t LLNET_NETWORKINTERFACE_IMPL_getVMInterfaceAddressesCount(int32_t id, uin
 	int index = net_if_get_by_name(ifname);
 	struct net_if *net_if = net_if_get_by_index(index);
 	if (!net_if) {
-		SNI_throwNativeIOException(J_EINVAL, "network interface not found");
+		VEEPORT_LOGGER_LOG_DBG("network interface not found");
+		VEEPORT_ERRORS_throw_caught_exception(J_EINVAL);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 	struct net_if_config *net_if_config = net_if_get_config(net_if);
@@ -174,17 +177,17 @@ static void getVMInterfacesCountCallback(struct net_if *iface, void *user_data) 
 }
 
 int32_t LLNET_NETWORKINTERFACE_IMPL_getVMInterfacesCount() {
-	LLNET_DEBUG_TRACE("%s\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 	int ifCount = 0;
 	net_if_foreach(getVMInterfacesCountCallback, &ifCount);
 
-	LLNET_DEBUG_TRACE("There is %d interface\n", ifCount);
+	VEEPORT_LOGGER_LOG_DBG("There is %d interface", ifCount);
 	return ifCount;
 }
 
 // This API return 1 if false and 0 if true
 int32_t LLNET_NETWORKINTERFACE_IMPL_isLoopback(uint8_t *ifname, int32_t ifname_length) {
-	LLNET_DEBUG_TRACE("%s\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 	ARG_UNUSED(ifname_length);
 
 	int index = net_if_get_by_name(ifname);
@@ -221,7 +224,7 @@ int32_t LLNET_NETWORKINTERFACE_IMPL_isLoopback(uint8_t *ifname, int32_t ifname_l
 
 // This API return 1 if false and 0 if true
 int32_t LLNET_NETWORKINTERFACE_IMPL_isPointToPoint(uint8_t *name, int32_t length) {
-	LLNET_DEBUG_TRACE("%s\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 	int index = net_if_get_by_name(name);
 	struct net_if *net_if = net_if_get_by_index(index);
 
@@ -230,7 +233,7 @@ int32_t LLNET_NETWORKINTERFACE_IMPL_isPointToPoint(uint8_t *name, int32_t length
 
 // This API return 1 if false and 0 if true
 int32_t LLNET_NETWORKINTERFACE_IMPL_isUp(uint8_t *name, int32_t length) {
-	LLNET_DEBUG_TRACE("%s\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 	int index = net_if_get_by_name(name);
 	struct net_if *net_if = net_if_get_by_index(index);
 
@@ -239,14 +242,14 @@ int32_t LLNET_NETWORKINTERFACE_IMPL_isUp(uint8_t *name, int32_t length) {
 
 // This API return 1 if false and 0 if true
 int32_t LLNET_NETWORKINTERFACE_IMPL_supportsMulticast(uint8_t *name, int32_t length) {
-	LLNET_DEBUG_TRACE("%s\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 
 	return 0;
 }
 
 int32_t LLNET_NETWORKINTERFACE_IMPL_getHardwareAddress(uint8_t *name, int32_t length, int8_t *hwAddr,
                                                        int32_t hwAddrMaxLength) {
-	LLNET_DEBUG_TRACE("%s\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 	int index = net_if_get_by_name(name);
 	struct net_if *net_if = net_if_get_by_index(index);
 	struct net_linkaddr link_addr = net_if->if_dev->link_addr;

@@ -1,5 +1,6 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
 
 
 config MICROEJ_KF
@@ -7,6 +8,15 @@ config MICROEJ_KF
 	default y
 
 if MICROEJ_KF
+
+module = MICROEJ_KF
+module-str = the MicroEJ KF Abstraction Layer
+# Default to ERR instead of LOG_DEFAULT_LEVEL. Keep this block before the template: the first default wins.
+choice MICROEJ_KF_LOG_LEVEL_CHOICE
+	default MICROEJ_KF_LOG_LEVEL_ERR
+endchoice
+source "subsys/logging/Kconfig.template.log_config"
+
 
 config MICROEJ_KF_KERNEL_WORKING_BUFFER_SIZE
 	hex "Kernel working buffer size (in Hexadecimal)"

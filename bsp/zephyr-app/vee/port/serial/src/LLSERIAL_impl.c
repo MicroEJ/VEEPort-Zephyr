@@ -1,9 +1,12 @@
 /*
  * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 #include <LLSERIAL_CONNECTION_impl.h>
 #include <LLSERIAL_utils.h>
+
+VEEPORT_LOGGER_DEFINE_MODULE(LLSERIAL_LOG_MODULE)
 
 #ifdef CONFIG_UART_ASYNC_ADAPTER
 
@@ -85,7 +88,7 @@ static void resume_java_thread(int32_t *thread_id) {
 	if (0 <= id) {
 		*thread_id = SNI_ERROR;
 		if (SNI_OK != SNI_resumeJavaThread(id)) {
-			LLSERIAL_ERROR_TRACE("[%s:%u] SNI_resumeJavaThread error\n", __FUNCTION__, __LINE__);
+			VEEPORT_LOGGER_LOG_ERR("SNI_resumeJavaThread error");
 		}
 	}
 }
@@ -104,8 +107,7 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
 		}
 		case UART_TX_ABORTED:
 		{
-			LLSERIAL_DEBUG_TRACE("[%s:%u] TX aborted %d bytes sent (handle %p)\n", __FUNCTION__, __LINE__,
-			                     evt->data.tx.len, uart);
+			VEEPORT_LOGGER_LOG_DBG("TX aborted %d bytes sent (handle %p)", evt->data.tx.len, uart);
 			serial->tx.ret = LLSERIAL_RETCODE_ERROR;
 			resume_java_thread(&serial->tx.java_thread_id);
 			break;
@@ -117,8 +119,8 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
 
 			int ret = ring_buf_put(&serial->rx_ring_buffer.rb, data, length);
 			if (ret != length) {
-				LLSERIAL_DEBUG_TRACE("[%s:%u] RX ring buffer not enough room, partial copy (added %d, expected %d)\n",
-				                     __FUNCTION__, __LINE__, ret, length);
+				VEEPORT_LOGGER_LOG_DBG("RX ring buffer not enough room, partial copy (added %d, expected %d)", ret,
+				                       length);
 				serial->rx.ret = LLSERIAL_RETCODE_ERROR;
 			}
 			resume_java_thread(&serial->rx.java_thread_id);
@@ -128,8 +130,7 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
 		{
 			int err = uart_rx_buf_rsp(uart, get_next_rx_buff(serial), CONFIG_MICROEJ_SERIAL_RX_BUFFER_SIZE);
 			if (0 > err) {
-				LLSERIAL_DEBUG_TRACE("[%s:%u] uart_rx_buf_rsp error %d (handle %p)\n", __FUNCTION__, __LINE__, err,
-				                     uart);
+				VEEPORT_LOGGER_LOG_DBG("uart_rx_buf_rsp error %d (handle %p)", err, uart);
 				serial->rx.ret = LLSERIAL_RETCODE_ERROR;
 			}
 			break;
@@ -144,8 +145,7 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
 		}
 		case UART_RX_STOPPED:
 		{
-			LLSERIAL_DEBUG_TRACE("[%s:%u] RX error %d (handle %p)\n", __FUNCTION__, __LINE__, evt->data.rx_stop.reason,
-			                     uart);
+			VEEPORT_LOGGER_LOG_DBG("RX error %d (handle %p)", evt->data.rx_stop.reason, uart);
 			serial->rx.ret = LLSERIAL_RETCODE_ERROR;
 			break;
 		}
@@ -170,8 +170,8 @@ int32_t serial_init() {
 
 		if (!device_is_ready(uart)) {
 			result = LLSERIAL_RETCODE_ERROR;
-			LLSERIAL_ERROR_TRACE("[%s:%u] Serial device %s is not ready (handle %p)\n", __FUNCTION__, __LINE__,
-			                     serial->name, uart);
+			VEEPORT_LOGGER_LOG_ERR("Serial device %s is not ready (handle %p)",
+			                       serial->name, uart);
 		}
 
 		if (result == LLSERIAL_RETCODE_OK) {
@@ -181,8 +181,7 @@ int32_t serial_init() {
 			uart_async_adapter_init(serial->async_adapter, uart);
 			serial->handle = (uint32_t)serial->async_adapter;
 #endif //CONFIG_UART_ASYNC_ADAPTER
-			LLSERIAL_DEBUG_TRACE("[%s:%d] Serial init done (handle %p)\n", __FUNCTION__, __LINE__,
-			                     (void *)serial->handle);
+			VEEPORT_LOGGER_LOG_DBG("Serial init done (handle %p)", (void *)serial->handle);
 		} else {
 			break;
 		}
@@ -214,8 +213,8 @@ int32_t serial_open(uint8_t *port_name) {
 			const struct device *uart = (const struct device *)serial->handle;
 			int err = uart_callback_set(uart, uart_cb, serial);
 			if (0 > err) {
-				LLSERIAL_ERROR_TRACE("[%s:%u] uart_callback_set error %d (handle %p)\n", __FUNCTION__, __LINE__, err,
-				                     uart);
+				VEEPORT_LOGGER_LOG_ERR("uart_callback_set error %d (handle %p)", err,
+				                       uart);
 				result = LLSERIAL_RETCODE_ERROR;
 			} else {
 				// Trigger first read operation and returns immediately.
@@ -229,8 +228,8 @@ int32_t serial_open(uint8_t *port_name) {
 				err = uart_rx_enable(uart, get_next_rx_buff(serial), CONFIG_MICROEJ_SERIAL_RX_BUFFER_SIZE,
 				                     CONFIG_MICROEJ_SERIAL_READ_TIMEOUT);
 				if ((0 > err) && (-EBUSY != err)) { // Allow to enable during read
-					LLSERIAL_ERROR_TRACE("[%s:%u] uart_rx_enable error %d (handle %p)\n", __FUNCTION__, __LINE__, err,
-					                     uart);
+					VEEPORT_LOGGER_LOG_ERR("uart_rx_enable error %d (handle %p)", err,
+					                       uart);
 
 					serial->is_open = false;
 					result = LLSERIAL_RETCODE_ERROR;
@@ -238,18 +237,18 @@ int32_t serial_open(uint8_t *port_name) {
 			}
 			if ((0 < uart) && (LLSERIAL_RETCODE_ERROR != result)) {
 				result = (int32_t)serial;
-				LLSERIAL_DEBUG_TRACE(
-					"[%s:%u] Successfully open new file descriptor %p for connection ID %d, device name %s \n",
-					__FUNCTION__, __LINE__, (void *)serial->handle, connection_id, serial->name);
+				VEEPORT_LOGGER_LOG_DBG("Successfully open new file descriptor %p for connection ID %d, device name %s",
+				                       (void *)serial->handle, connection_id, serial->name);
 			} else {
-				LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC,
-				                                   LLSERIAL_CONNECTION_CONFIGURATION_ERROR);
+				VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC,
+				                                              LLSERIAL_CONNECTION_CONFIGURATION_ERROR);
 			}
 		} else {
-			LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_PORT_ALREADY_USED);
+			VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC,
+			                                              LLSERIAL_CONNECTION_PORT_ALREADY_USED);
 		}
 	} else {
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INVALID_PORT);
+		VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INVALID_PORT);
 	}
 
 	return result;
@@ -274,7 +273,8 @@ int32_t serial_configure(serial_ctx_t *serial, int32_t baudrate, int32_t databit
 		uart_cfg.parity = UART_CFG_PARITY_NONE;
 		break;
 	default:
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_UNSUPPORTED_CONFIG, LLSERIAL_CONNECTION_INVALID_PARITY);
+		VEEPORT_LOGGER_LOG_DBG(LLSERIAL_CONNECTION_INVALID_PARITY);
+		result = LLSERIAL_RETCODE_ERROR;
 		break;
 	}
 	switch (stopbits) {
@@ -288,8 +288,8 @@ int32_t serial_configure(serial_ctx_t *serial, int32_t baudrate, int32_t databit
 		uart_cfg.stop_bits = UART_CFG_STOP_BITS_1_5;
 		break;
 	default:
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_UNSUPPORTED_CONFIG,
-		                                   LLSERIAL_CONNECTION_INVALID_STOPBITS);
+		VEEPORT_LOGGER_LOG_DBG(LLSERIAL_CONNECTION_INVALID_STOPBITS);
+		result = LLSERIAL_RETCODE_ERROR;
 		break;
 	}
 	switch (databits) {
@@ -309,22 +309,27 @@ int32_t serial_configure(serial_ctx_t *serial, int32_t baudrate, int32_t databit
 		uart_cfg.data_bits = UART_CFG_DATA_BITS_9;
 		break;
 	default:
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_UNSUPPORTED_CONFIG,
-		                                   LLSERIAL_CONNECTION_INVALID_DATABITS);
+		VEEPORT_LOGGER_LOG_DBG(LLSERIAL_CONNECTION_INVALID_DATABITS);
+		result = LLSERIAL_RETCODE_ERROR;
 		break;
 	}
 
-	int err = uart_configure(uart, &uart_cfg);
-	if (0 > err) {
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_UNSUPPORTED_CONFIG,
-		                                   LLSERIAL_CONNECTION_CONFIGURATION_ERROR);
-		result = LLSERIAL_RETCODE_ERROR;
+	int err = 0;
+	if (LLSERIAL_RETCODE_OK != result) {
+		VEEPORT_ERRORS_throw_caught_exception(LLSERIAL_IOEXCEPTION_UNSUPPORTED_CONFIG);
+	} else {
+		err = uart_configure(uart, &uart_cfg);
+		if (0 > err) {
+			VEEPORT_LOGGER_LOG_DBG("uart_configure error %d", err);
+			VEEPORT_ERRORS_throw_caught_exception(LLSERIAL_IOEXCEPTION_UNSUPPORTED_CONFIG);
+			result = LLSERIAL_RETCODE_ERROR;
+		}
 	}
 
 #ifdef CONFIG_UART_NXP_LPUART_ASYNC_API_SUPPORT
 	/*
-	 * On NXP LPUART, uart_configure calls LPUART_Deinit then LPUART_Init, which leaves
-	 * the EDMA channel in a stale "busy" state. Stop it cleanly then restart DMA RX.
+	 * On NXP LPUART, uart_configure re-runs LPUART_Init, which leaves the EDMA channel
+	 * in a stale "busy" state. Stop it cleanly then restart DMA RX.
 	 */
 	if (serial->is_open && (LLSERIAL_RETCODE_OK == result)) {
 		uart_rx_disable(uart);
@@ -335,8 +340,7 @@ int32_t serial_configure(serial_ctx_t *serial, int32_t baudrate, int32_t databit
 		err = uart_rx_enable(uart, get_next_rx_buff(serial), CONFIG_MICROEJ_SERIAL_RX_BUFFER_SIZE,
 		                     CONFIG_MICROEJ_SERIAL_READ_TIMEOUT);
 		if ((0 > err) && (-EBUSY != err)) {
-			LLSERIAL_ERROR_TRACE("[%s:%u] uart_rx_enable error %d after configure (handle %p)\n", __FUNCTION__,
-			                     __LINE__, err, uart);
+			VEEPORT_LOGGER_LOG_ERR("uart_rx_enable error %d after configure (handle %p)", err, uart);
 			result = LLSERIAL_RETCODE_ERROR;
 		}
 	}
@@ -354,14 +358,14 @@ int32_t serial_read(serial_ctx_t *serial, uint8_t *buff, int32_t size) {
 	if (serial->rx.ret == LLSERIAL_RETCODE_OK) {
 		result = ring_buf_get(&serial->rx_ring_buffer.rb, buff, size);
 	} else {
-		LLSERIAL_ERROR_TRACE("[%s:%u] Serial read error %d (handle %p)\n", __FUNCTION__, __LINE__, serial->rx.ret,
-		                     (void *)serial->handle);
+		VEEPORT_LOGGER_LOG_ERR("Serial read error %d (handle %p)", serial->rx.ret,
+		                       (void *)serial->handle);
 		serial->rx.ret = LLSERIAL_RETCODE_OK;
 		result = uart_rx_enable((const struct device *)serial->handle, get_next_rx_buff(serial),
 		                        CONFIG_MICROEJ_SERIAL_RX_BUFFER_SIZE, CONFIG_MICROEJ_SERIAL_READ_TIMEOUT);
 		if (0 > result) {
-			LLSERIAL_ERROR_TRACE("[%s:%u] uart_rx_enable error %d (handle %p)\n", __FUNCTION__, __LINE__, result,
-			                     (const struct device *)serial->handle);
+			VEEPORT_LOGGER_LOG_ERR("uart_rx_enable error %d (handle %p)", result,
+			                       (const struct device *)serial->handle);
 			serial->rx.ret = LLSERIAL_RETCODE_ERROR;
 		}
 		result = LLSERIAL_RETCODE_ERROR;
@@ -394,7 +398,7 @@ int32_t serial_write(serial_ctx_t *serial, uint8_t *buff, int32_t size) {
 #endif /* CONFIG_MICROEJ_SERIAL_NOCACHE_BUFFERS */
 
 	if (0 > err) {
-		LLSERIAL_ERROR_TRACE("[%s:%u] Serial uart_tx error %d (handle %p)\n", __FUNCTION__, __LINE__, err, uart);
+		VEEPORT_LOGGER_LOG_ERR("Serial uart_tx error %d (handle %p)", err, uart);
 		result = LLSERIAL_RETCODE_ERROR;
 	}
 

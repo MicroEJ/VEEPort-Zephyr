@@ -1,0 +1,36 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+#
+# Build: 7E4D1F7C
+
+include_guard()
+message("microej/crypto component is included.")
+
+target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/inc)
+target_sources(${target} PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_AES_KEY_WRAP_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_CERT_PATH_VALIDATOR_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_CIPHER_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_DIGEST_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_ec_curve.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_EXTERNAL_KEYSTORE_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_key.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_key_der.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_key_psa.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_KEY_AGREEMENT_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_KEY_FACTORY_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_KEY_GENERATOR_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_KEY_PAIR_GENERATOR_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_MAC_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_PRIVATE_KEY_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_PUBLIC_KEY_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_RANDOM_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_RSA_CIPHER_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_SECRET_KEY_FACTORY_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_SECRET_KEY_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_SIG_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_utils.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_X509_CERT_impl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/LLCRYPTO_x509.c
+)

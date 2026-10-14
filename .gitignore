@@ -11,6 +11,21 @@ bsp/modules/
 bsp/optional/
 bsp/zephyr/
 
+### Generated board selection (gradle/boards.gradle.kts) ###
+bsp/zephyr-app/vee/scripts/.board.env
+
+### VEE Port qualification: raw run data, builds, benchmark clones, and the prj.conf backup stay local ###
+.claude/qualification/*/runs/
+.claude/qualification/build/
+.claude/qualification/benchmarks/
+.claude/qualification/prj.conf.backup
+
+### Claude ###
+.scratch/
+
+### Python ###
+__pycache__/
+
 ### IntelliJ IDEA ###
 .idea/
 *.iws
@@ -49,3 +64,4 @@ bsp/cppcheck/unverified.txt
 bsp/zephyr-app/vee/build/
 bsp/zephyr-app/vee/inc/
 bsp/zephyr-app/vee/lib/
+bsp/zephyr-app/vee/port/essentials/

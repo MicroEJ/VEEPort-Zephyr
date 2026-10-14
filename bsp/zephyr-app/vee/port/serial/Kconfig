@@ -1,5 +1,6 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
 
 config MICROEJ_SERIAL
 	bool "Build Serial Abstraction Layer"
@@ -8,6 +9,15 @@ config MICROEJ_SERIAL
 	select UART_USE_RUNTIME_CONFIGURE
 
 if MICROEJ_SERIAL
+
+module = MICROEJ_SERIAL
+module-str = the MicroEJ Serial Abstraction Layer
+# Default to ERR instead of LOG_DEFAULT_LEVEL. Keep this block before the template: the first default wins.
+choice MICROEJ_SERIAL_LOG_LEVEL_CHOICE
+	default MICROEJ_SERIAL_LOG_LEVEL_ERR
+endchoice
+source "subsys/logging/Kconfig.template.log_config"
+
 
 config MICROEJ_SERIAL_NOCACHE_BUFFERS 
 	bool "Use non-cached buffers for cache-coherent UART transfers (could be required for some DMA)"

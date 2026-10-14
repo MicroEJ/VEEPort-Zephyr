@@ -1,9 +1,13 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
 
 menu "VEE Abstraction Layer Configuration"
 
 rsource "./port/*/Kconfig"
+
+config VEEPORT_ESSENTIALS
+	default y if MICROEJ_CORE
 
 menu "Debug and Diagnostics"
 
@@ -12,6 +16,12 @@ config MICROEJ_DEBUG_MODE
 	default y
 	help
 		Enables debug information and increases image size.
+
+config LOG_FUNC_NAME_PREFIX_DBG
+	# The debug traces of the abstraction layers do not name the function they come from,
+	# they rely on this prefix instead. The traces logged on entry of an abstraction layer
+	# function carry no message at all, so turning it off makes them unreadable.
+	default y
 
 endmenu
 

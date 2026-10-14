@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 #include <stdio.h>
@@ -26,7 +27,11 @@ void T_LLKERNEL_main(void) {
  * @brief Kernel applications buffer size.
  *
  */
+#ifdef CONFIG_MICROEJ_KF_KERNEL_WORKING_BUFFER_SIZE
+#define KERNEL_WORKING_BUFFER_SIZE CONFIG_MICROEJ_KF_KERNEL_WORKING_BUFFER_SIZE
+#else
 #define KERNEL_WORKING_BUFFER_SIZE 0xF0000
+#endif // CONFIG_MICROEJ_KF_KERNEL_WORKING_BUFFER_SIZE
 
 /**
  * @brief Declare the section where will be allocated the Applications.

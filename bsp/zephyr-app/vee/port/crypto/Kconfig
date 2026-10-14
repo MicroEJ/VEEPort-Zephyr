@@ -1,0 +1,195 @@
+# Copyright 2026 MicroEJ Corp. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be found with this software.
+#
+# Build: 7E4D1F7C
+
+config MICROEJ_CRYPTO
+	bool "Build Crypto Abstraction Layer"
+	default y
+
+config MICROEJ_CRYPTO_NRF54L15_KMU
+	bool "nRF54L15 hardware-backed Crypto (nRF Connect SDK: Oberon AES Key Wrap + CRACEN KMU keystore)"
+	depends on MICROEJ_CRYPTO
+	default n
+	help
+	  Enables the nRF54L15 + nRF Connect SDK hardware-backed Crypto natives:
+	    - AES Key Wrap via the Oberon PSA APIs (PSA_ALG_AES_KW, oberon_psa_wrap_key/unwrap_key);
+	    - the external keystore backed by the CRACEN Key Management Unit, using the board-specific
+	      KMU slot provisioning.
+	  These rely on NCS-only PSA drivers and on the board KMU slot layout, so they are unavailable on
+	  the generic Zephyr / Mbed TLS 4.1 (TF-PSA-Crypto) port. Leave disabled there (the corresponding
+	  natives report the operation as unsupported / not implemented); set to y on the nRF54L15 + NCS
+	  build.
+
+if MICROEJ_CRYPTO
+
+module = MICROEJ_CRYPTO
+module-str = the MicroEJ Crypto Abstraction Layer
+# Default to ERR instead of LOG_DEFAULT_LEVEL. Keep this block before the template: the first default wins.
+choice MICROEJ_CRYPTO_LOG_LEVEL_CHOICE
+	default MICROEJ_CRYPTO_LOG_LEVEL_ERR
+endchoice
+source "subsys/logging/Kconfig.template.log_config"
+
+# Longest certificate path (end-entity + intermediate CAs, trust anchor excluded) that a
+# CertPathValidator accepts. Each appended certificate is parsed into a heap-allocated node before
+# validation, so this bounds the native memory a caller can pin through a long path. The default
+# mirrors Mbed TLS's own verification chain: MBEDTLS_X509_MAX_INTERMEDIATE_CA (8) intermediates plus
+# the end-entity certificate.
+config MICROEJ_CRYPTO_CERT_PATH_MAX_LENGTH
+	int "Maximum CertPathValidator path length"
+	range 1 255
+	default 9
+
+# --- Mbed TLS / PSA Crypto configuration for the Crypto Abstraction Layer ---
+# Owned by the module (moved here from main/prj.conf). Aligned with the KIMBAL portable subset;
+# NCS/Oberon/CRACEN-only options are gated separately by MICROEJ_CRYPTO_NRF54L15_KMU.
+
+# Mbed TLS 4.x with the PSA Crypto core (TF-PSA-Crypto). PSA is the only crypto API: the legacy
+# MBEDTLS_USE_PSA_CRYPTO switch no longer exists.
+config MBEDTLS
+	default y
+config MBEDTLS_PSA_CRYPTO_C
+	default y
+
+# Mbed TLS heap: the default (512 B) is too small to import even a single ECC key; RSA-2048
+# private-key operations (sign) need more headroom still.
+config MBEDTLS_ENABLE_HEAP
+	default y
+# When SSL is enabled, mbedtls_ssl_setup() allocates the TLS record I/O buffers from this heap:
+# one input and one output buffer of MBEDTLS_SSL_MAX_CONTENT_LEN (16 KiB) each, i.e. ~33 KiB, on top
+# of the handshake/crypto working set. 16 KiB is not even enough for a single buffer, so ssl_setup
+# fails with MBEDTLS_ERR_SSL_ALLOC_FAILED. Size the buffer-allocator heap for a TLS session
+# when SSL is built; a crypto-only board keeps the smaller footprint.
+config MBEDTLS_HEAP_SIZE
+	default 65536 if MICROEJ_SSL
+	default 16384
+
+# PSA algorithms / key types.
+
+# Hash / digest algorithms.
+config PSA_WANT_ALG_MD5
+	default y
+config PSA_WANT_ALG_SHA_1
+	default y
+config PSA_WANT_ALG_SHA_224
+	default y
+config PSA_WANT_ALG_SHA_256
+	default y
+config PSA_WANT_ALG_SHA_384
+	default y
+config PSA_WANT_ALG_SHA_512
+	default y
+# Keyed-hash MAC over the enabled digests.
+config PSA_WANT_ALG_HMAC
+	default y
+# PBKDF2 key derivation (SecretKeyFactory PBKDF2WithHmacSHA1/224/256/384/512). Pulls in HMAC and the
+# HMAC key type via the mbedtls PSA dependency adjustment; the digest is selected per algorithm above.
+config PSA_WANT_ALG_PBKDF2_HMAC
+	default y
+# AES cipher modes.
+config PSA_WANT_ALG_GCM
+	default y
+config PSA_WANT_ALG_CTR
+	default y
+config PSA_WANT_ALG_CBC_NO_PADDING
+	default y
+config PSA_WANT_ALG_ECB_NO_PADDING
+	default y
+config PSA_WANT_KEY_TYPE_AES
+	default y
+config PSA_WANT_ALG_ECDSA
+	default y
+config PSA_WANT_ALG_ECDH
+	default y
+# EC curves: the NIST secp R1 family from P-256 up plus secp256k1, i.e. every named curve
+# KeyPairGenerator("EC") and KeyFactory("EC") accept (see the curve tables in
+# LLCRYPTO_KEY_PAIR_GENERATOR_impl.c and LLCRYPTO_KEY_FACTORY_impl.c, each entry gated by its
+# PSA_WANT_ECC_* flag). P-192 and P-224 are gone: TF-PSA-Crypto 1.x removed them. A board may turn
+# any of the remaining curves off for footprint; the matching table entry then drops out and the Java
+# side gets "algorithm not supported" for that curve name.
+config PSA_WANT_ECC_SECP_R1_256
+	default y
+config PSA_WANT_ECC_SECP_R1_384
+	default y
+config PSA_WANT_ECC_SECP_R1_521
+	default y
+config PSA_WANT_ECC_SECP_K1_256
+	default y
+config PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
+	default y
+config PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_IMPORT
+	default y
+config PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_GENERATE
+	default y
+config PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_EXPORT
+	default y
+config PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_DERIVE
+	default y
+
+# RSA PKCS#1 v1.5 signatures (SignatureTest: SHA256withRSA, 1024/2048-bit keys) and RSA key-pair
+# generation (KeyPairGeneratorTest). PSA performs sign/verify/keygen; enabling these wants also pulls
+# in the builtin RSA (config_adjust_legacy_from_psa.h) that the PK parser (mbedtls_pk_parse_*) needs to
+# decode the key/cert before importing it into PSA. Public key -> VERIFY; imported PKCS#8 private key
+# -> SIGN; generated key pair -> SIGN/VERIFY (and export/reimport for other usages).
+config PSA_WANT_KEY_TYPE_RSA_PUBLIC_KEY
+	default y
+config PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_IMPORT
+	default y
+config PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_GENERATE
+	default y
+config PSA_WANT_ALG_RSA_PKCS1V15_SIGN
+	default y
+
+# RSA encryption (RSACipherTest): "RSA/ECB/PKCS1Padding" and "RSA/ECB/OAEPWith{SHA-1,SHA-256}AndMGF1Padding".
+# PSA performs the asymmetric encrypt/decrypt; OAEP reuses the SHA-1 / SHA-256 wants enabled above.
+config PSA_WANT_ALG_RSA_PKCS1V15_CRYPT
+	default y
+config PSA_WANT_ALG_RSA_OAEP
+	default y
+
+# X.509 certificate parsing (X509Certificate, CertPathValidator, KeyFactory from a certificate). It
+# selects the X.509 core and the PK parser (MBEDTLS_PK_PARSE_C) used to load encoded keys before they
+# are imported into PSA. PEM_PARSE_C adds PEM decoding (it replaces the former
+# MBEDTLS_PEM_CERTIFICATE_FORMAT umbrella and pulls in BASE64_C).
+config MBEDTLS_X509_CRT_PARSE_C
+	default y
+config MBEDTLS_PEM_PARSE_C
+	default y
+
+# X.509 certificate validity (notBefore/notAfter) checking. Without it, Mbed TLS compiles
+# mbedtls_x509_time_is_past/future to "return 0", so X509Certificate.checkValidity() never reports an
+# expired or not-yet-valid certificate. It is backed by the standard time() -> SYS_CLOCK_REALTIME,
+# which is the same clock ej.bon.Util.setCurrentTimeMillis sets (via microej_time_zephyr.c, the
+# NATIVE_ZEPHYR core time choice). A board without a trustworthy clock can override this to n.
+config MBEDTLS_HAVE_TIME_DATE
+	default y
+
+# Enable the Mbed TLS PK writer (MBEDTLS_PK_WRITE_C), needed by the Crypto Abstraction Layer.
+#
+# Why PK_WRITE_C:
+#   Key.getEncoded() produces PKCS#8 / SubjectPublicKeyInfo DER through mbedtls_pk_write_key_der() /
+#   mbedtls_pk_write_pubkey_der(): with TF-PSA-Crypto the PK writer is the only public DER encoder
+#   left (the ECP / OID / ASN.1 MPI helpers are private). It also brings the ASN.1 writer: PSA returns
+#   ECDSA signatures in raw (r || s) form, but java.security.Signature expects the DER SEQUENCE, so
+#   LLCRYPTO_SIG_IMPL_sign re-encodes with mbedtls_ecdsa_raw_to_der(), which needs MBEDTLS_ASN1_WRITE_C.
+#   (The reverse, der_to_raw on verify, only needs the ASN.1 reader.)
+#
+# Why via PK_WRITE_C and why it surfaced with Bluetooth:
+#   Zephyr exposes no direct CONFIG_MBEDTLS_ASN1_WRITE_C symbol; the writer is auto-defined by
+#   MBEDTLS_ECDSA_C, MBEDTLS_RSA_C or MBEDTLS_PK_WRITE_C (config-tf-psa-crypto.h), and PK_WRITE_C is
+#   the lightest, on-point trigger. With Bluetooth, BT_SMP implies MBEDTLS_PSA_P256M_DRIVER_ENABLED,
+#   which fully accelerates secp256r1 ECDSA; the software ECDSA path (which defines ASN1_WRITE_C as a
+#   side effect) is then skipped. Enabling PK_WRITE_C defines ASN1_WRITE_C unconditionally, so the
+#   Crypto layer builds with or without Bluetooth while keeping the p256-m acceleration.
+config MBEDTLS_PK_WRITE_C
+	default y
+
+# PSA Crypto key-slot count.
+# An application that keeps more PSA keys live at the same time than this still fails,
+# so integrators should raise it to their application's worst-case count of concurrent live PSA keys.
+
+config MBEDTLS_PSA_KEY_SLOT_COUNT
+	default 30
+
+endif # MICROEJ_CRYPTO

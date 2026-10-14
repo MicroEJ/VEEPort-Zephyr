@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -14,6 +15,8 @@
 #include "LLML_configuration.h"
 #include "LLML_microai_heap.h"
 #include "LLML_tensorflow_lite.h"
+
+VEEPORT_LOGGER_DECLARE_MODULE(LLML_LOG_MODULE)
 
 #if (LLML_BACKEND == LLML_USE_TFLITE_MICRO)
 #include <tensorflow/lite/micro/micro_log.h>
@@ -64,7 +67,7 @@ LLML_InterpreterHandle_t LLML_CreateInterpreter(void *model_data, int model_size
 	/* Allocate memory for the interpreter handler structure */
 	LLML_TFLiteInterpreterHandle_t *handle = new LLML_TFLiteInterpreterHandle_t;
 	if (handle == nullptr) {
-		LLML_DEBUG_TRACE("ERROR: Failed to create interpreter handle\n");
+		VEEPORT_LOGGER_LOG_ERR("Failed to create interpreter handle");
 		return 0;
 	}
 
@@ -72,7 +75,7 @@ LLML_InterpreterHandle_t LLML_CreateInterpreter(void *model_data, int model_size
 	/* Map the model into a usable data structure. */
 	const tflite::Model *model = tflite::GetModel(model_data);
 	if (model == nullptr) {
-		LLML_DEBUG_TRACE("ERROR: Failed to build model\n");
+		VEEPORT_LOGGER_LOG_ERR("Failed to build model");
 		return 0;
 	}
 
@@ -80,7 +83,7 @@ LLML_InterpreterHandle_t LLML_CreateInterpreter(void *model_data, int model_size
 	LLML_microai_heap_init();
 	handle->tensorArena = (uint8_t *)LLML_microai_heap_allocate(inference_memory_pool_size);
 	if (handle->tensorArena == nullptr) {
-		LLML_DEBUG_TRACE("ERROR: Failed to allocate tensor arena\n");
+		VEEPORT_LOGGER_LOG_ERR("Failed to allocate tensor arena");
 		return 0;
 	}
 
@@ -96,17 +99,17 @@ LLML_InterpreterHandle_t LLML_CreateInterpreter(void *model_data, int model_size
 	std::unique_ptr<tflite::MicroInterpreter> interpreter(micro_interpreter);
 
 	if (interpreter == nullptr) {
-		LLML_DEBUG_TRACE("ERROR: failed to initialize interpreter\n");
+		VEEPORT_LOGGER_LOG_ERR("failed to initialize interpreter");
 		return 0;
 	}
 
 	/* Allocate tensors */
 	if (interpreter->AllocateTensors() != kTfLiteOk) {
-		LLML_DEBUG_TRACE("ERROR: Failed to allocate tensors\n");
+		VEEPORT_LOGGER_LOG_ERR("Failed to allocate tensors");
 		return 0;
 	}
 
-	LLML_DEBUG_TRACE("%s(%d) Arena used bytes: %d\n", __func__, __LINE__, interpreter->arena_used_bytes());
+	VEEPORT_LOGGER_LOG_DBG("line %d Arena used bytes: %d", __LINE__, interpreter->arena_used_bytes());
 
 	/* store the interpreter */
 	handle->interpreter = std::move(interpreter);
@@ -115,7 +118,7 @@ LLML_InterpreterHandle_t LLML_CreateInterpreter(void *model_data, int model_size
 	std::unique_ptr<tflite::FlatBufferModel> model = tflite::FlatBufferModel::BuildFromBuffer((const char *)model_data,
 	                                                                                          model_size);
 	if (model == nullptr) {
-		LLML_DEBUG_TRACE("ERROR: Failed to build model\n");
+		VEEPORT_LOGGER_LOG_ERR("Failed to build model");
 		return 0;
 	}
 
@@ -129,13 +132,13 @@ LLML_InterpreterHandle_t LLML_CreateInterpreter(void *model_data, int model_size
 	std::unique_ptr<tflite::Interpreter> interpreter;
 	tflite::InterpreterBuilder(*model, resolver)(&interpreter);
 	if (interpreter == nullptr) {
-		LLML_DEBUG_TRACE("ERROR: failed to initialize interpreter\n");
+		VEEPORT_LOGGER_LOG_ERR("failed to initialize interpreter");
 		return 0;
 	}
 
 	/* Allocate tensors */
 	if (interpreter->AllocateTensors() != kTfLiteOk) {
-		LLML_DEBUG_TRACE("ERROR: Failed to allocate tensors\n");
+		VEEPORT_LOGGER_LOG_ERR("Failed to allocate tensors");
 		return 0;
 	}
 
@@ -169,7 +172,7 @@ int LLML_Reset(LLML_InterpreterHandle_t handle) {
 		TfLiteStatus reset_status = interpreter->ResetVariableTensors();
 #endif
 		if (reset_status != kTfLiteOk) {
-			LLML_DEBUG_TRACE("Interpreter reset failed\n");
+			VEEPORT_LOGGER_LOG_ERR("Interpreter reset failed");
 			ret = kTfLiteError;
 		}
 	}
@@ -183,7 +186,7 @@ int LLML_RunInference(LLML_InterpreterHandle_t handle) {
 	if (interpreter) {
 		TfLiteStatus invoke_status = interpreter->Invoke();
 		if (invoke_status != kTfLiteOk) {
-			LLML_DEBUG_TRACE("Interpreter invocation failed\n");
+			VEEPORT_LOGGER_LOG_ERR("Interpreter invocation failed");
 			ret = kTfLiteError;
 		}
 	}

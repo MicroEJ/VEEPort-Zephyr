@@ -1,10 +1,13 @@
 /*
  * Copyright 2025-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 #include <LLSERIAL_CONNECTION_impl.h>
 #include <LLSERIAL_utils.h>
 #include <string.h>
+
+VEEPORT_LOGGER_DECLARE_MODULE(LLSERIAL_LOG_MODULE)
 
 // -----------------------------------------------------------------------------
 // Internal function definitions
@@ -14,10 +17,12 @@ static serial_ctx_t *throw_if_not_open(int32_t connection_id) {
 	serial_ctx_t *serial = (serial_ctx_t *)connection_id;
 
 	if (NULL == serial) {
-		LLSERIAL_THROW_NATIVE_EXCEPTION(LLSERIAL_RETCODE_ERROR, LLSERIAL_CONNECTION_INVALID_PORT);
+		VEEPORT_LOGGER_LOG_DBG(LLSERIAL_CONNECTION_INVALID_PORT);
+		VEEPORT_ERRORS_throw_runtime_exception(RUNTIME_EXCEPTION_INVALID_ARGUMENT);
 		serial = NULL;
 	} else if (false == serial->is_open) {
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_CONNECTION_CLOSED);
+		VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC,
+		                                              LLSERIAL_CONNECTION_CONNECTION_CLOSED);
 		serial = NULL;
 	} else {
 		// serial is valid and open
@@ -34,16 +39,16 @@ static serial_ctx_t *throw_if_not_open(int32_t connection_id) {
  * Initializes the native stack.
  */
 void LLSERIAL_CONNECTION_IMPL_init(void) {
-	LLSERIAL_DEBUG_TRACE("[%s:%u] \n", __FUNCTION__, __LINE__);
+	VEEPORT_LOGGER_LOG_DBG("");
 
 	int32_t result = serial_init();
 	if (LLSERIAL_RETCODE_ERROR == result) {
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
+		VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
 	}
 }
 
 int32_t LLSERIAL_CONNECTION_IMPL_open(uint8_t *port_name) {
-	LLSERIAL_DEBUG_TRACE("[%s:%u] port_name = %s \n", __FUNCTION__, __LINE__, port_name);
+	VEEPORT_LOGGER_LOG_DBG("port_name = %s", port_name);
 
 	int32_t connection_id = serial_open(port_name);
 	if (LLSERIAL_RETCODE_ERROR != connection_id) {
@@ -51,29 +56,29 @@ int32_t LLSERIAL_CONNECTION_IMPL_open(uint8_t *port_name) {
 		                                            (SNI_closeFunction)LLSERIAL_CONNECTION_IMPL_close, NULL));
 	}
 
-	LLSERIAL_DEBUG_TRACE("[%s:%u] connection_id = %d \n", __FUNCTION__, __LINE__, connection_id);
+	VEEPORT_LOGGER_LOG_DBG("connection_id = %d", connection_id);
 	return connection_id;
 }
 
 void LLSERIAL_CONNECTION_IMPL_configure(int32_t connection_id, int32_t baudrate, int32_t databits, int32_t parity,
                                         int32_t stopbits) {
-	LLSERIAL_DEBUG_TRACE("[%s:%u] connection_id = %d, baudrate = %d, databits = %d, stopbits = %d, parity = %d \n",
-	                     __FUNCTION__, __LINE__, connection_id, baudrate, databits, stopbits, parity);
+	VEEPORT_LOGGER_LOG_DBG("connection_id = %d, baudrate = %d, databits = %d, stopbits = %d, parity = %d",
+	                       connection_id, baudrate, databits, stopbits, parity);
 
 	serial_ctx_t *serial = (serial_ctx_t *)connection_id;
 	if (NULL != serial) {
 		int32_t result = serial_configure(serial, baudrate, databits, stopbits, parity);
 		if (LLSERIAL_RETCODE_ERROR == result) {
-			LLSERIAL_ERROR_TRACE("[%s:%u] configuration error %d\n", __FUNCTION__, __LINE__, result);
+			VEEPORT_LOGGER_LOG_ERR("configuration error %d", result);
 		}
 	} else {
-		LLSERIAL_THROW_NATIVE_EXCEPTION(LLSERIAL_RETCODE_ERROR, LLSERIAL_CONNECTION_INVALID_PORT);
+		VEEPORT_LOGGER_LOG_DBG(LLSERIAL_CONNECTION_INVALID_PORT);
+		VEEPORT_ERRORS_throw_runtime_exception(RUNTIME_EXCEPTION_INVALID_ARGUMENT);
 	}
 }
 
 int32_t LLSERIAL_CONNECTION_IMPL_read(int32_t connection_id, uint8_t *b, int32_t off, int32_t len) {
-	LLSERIAL_DEBUG_TRACE("[%s:%u] connection_id = %d, off = %d, len = %d \n", __FUNCTION__, __LINE__, connection_id,
-	                     off, len);
+	VEEPORT_LOGGER_LOG_DBG("connection_id = %d, off = %d, len = %d", connection_id, off, len);
 	int32_t result = LLSERIAL_RETCODE_OK;
 
 	if (len > 0) {
@@ -84,19 +89,19 @@ int32_t LLSERIAL_CONNECTION_IMPL_read(int32_t connection_id, uint8_t *b, int32_t
 				serial->rx.java_thread_id = SNI_getCurrentJavaThreadID();
 				LLSERIAL_SNI_SUSPEND_WITH_CALLBACK(0, (SNI_callback)LLSERIAL_CONNECTION_IMPL_read, NULL);
 			} else if (LLSERIAL_RETCODE_ERROR == result) {
-				LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_RX_ERROR);
+				VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC,
+				                                              LLSERIAL_CONNECTION_RX_ERROR);
 				result = SNI_IGNORED_RETURNED_VALUE;
 			}
 		}
 	}
 
-	LLSERIAL_DEBUG_TRACE("[%s:%u] return value = %d\n", __FUNCTION__, __LINE__, result);
+	VEEPORT_LOGGER_LOG_DBG("return value = %d", result);
 	return result;
 }
 
 void LLSERIAL_CONNECTION_IMPL_write(int32_t connection_id, uint8_t *b, int32_t off, int32_t len) {
-	LLSERIAL_DEBUG_TRACE("[%s:%u] connection_id = %d, off = %d, len = %d \n", __FUNCTION__, __LINE__, connection_id,
-	                     off, len);
+	VEEPORT_LOGGER_LOG_DBG("connection_id = %d, off = %d, len = %d", connection_id, off, len);
 	int32_t result = LLSERIAL_RETCODE_OK;
 
 	serial_ctx_t *serial = throw_if_not_open(connection_id);
@@ -105,7 +110,7 @@ void LLSERIAL_CONNECTION_IMPL_write(int32_t connection_id, uint8_t *b, int32_t o
 		if (ret == LLSERIAL_RETCODE_ERROR) {
 			serial->tx.ret = 0;
 
-			LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_TX_ERROR);
+			VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_TX_ERROR);
 		} else if (ret < len) {
 			result = SNI_IGNORED_RETURNED_VALUE;
 			uint32_t remaining_length = len - ret;
@@ -118,25 +123,25 @@ void LLSERIAL_CONNECTION_IMPL_write(int32_t connection_id, uint8_t *b, int32_t o
 			                                   remaining_length, (int8_t **)&serial->tx.data,
 			                                   (uint32_t *)&serial->tx.length, true);
 			if (SNI_OK != result) {
-				LLSERIAL_ERROR_TRACE(
-					"[%s::%d] Failed to retrieve SNI array elements of addr %p and offset %d (error %d)\n",
-					__FUNCTION__, __LINE__, (void *)b, new_off, result);
-				LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
+				VEEPORT_LOGGER_LOG_ERR("Failed to retrieve SNI array elements of addr %p and offset %d (error %d)",
+				                       (void *)b, new_off, result);
+				VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC,
+				                                              LLSERIAL_CONNECTION_INTERNAL_ERROR);
 				result = SNI_IGNORED_RETURNED_VALUE;
 			} else {
 				serial->tx.java_thread_id = SNI_getCurrentJavaThreadID();
 				LLSERIAL_SNI_SUSPEND_WITH_CALLBACK(0, (SNI_callback)LLSERIAL_CONNECTION_IMPL_write, NULL);
 				result = serial_write(serial, serial->tx.data, serial->tx.length);
 				if (LLSERIAL_RETCODE_ERROR == result) {
-					LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC,
-					                                   LLSERIAL_CONNECTION_INTERNAL_ERROR);
+					VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC,
+					                                              LLSERIAL_CONNECTION_INTERNAL_ERROR);
 				}
 			}
 		} else {
 			serial->tx.ret = 0;
 		}
 
-		LLSERIAL_DEBUG_TRACE("[%s:%u] write length = %d \n", __FUNCTION__, __LINE__, serial->tx.ret);
+		VEEPORT_LOGGER_LOG_DBG("write length = %d", serial->tx.ret);
 	}
 }
 
@@ -147,16 +152,17 @@ int32_t LLSERIAL_CONNECTION_IMPL_available(int32_t connection_id) {
 	if (NULL != serial) {
 		result = serial_available(serial);
 		if (0 > result) {
-			LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
+			VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC,
+			                                              LLSERIAL_CONNECTION_INTERNAL_ERROR);
 		}
 	}
 
-	LLSERIAL_DEBUG_TRACE("[%s:%u] return value = %d\n", __FUNCTION__, __LINE__, result);
+	VEEPORT_LOGGER_LOG_DBG("return value = %d", result);
 	return result;
 }
 
 void LLSERIAL_CONNECTION_IMPL_flush(int32_t connection_id) {
-	LLSERIAL_DEBUG_TRACE("[%s:%u] connection_id = %d \n", __FUNCTION__, __LINE__, connection_id);
+	VEEPORT_LOGGER_LOG_DBG("connection_id = %d", connection_id);
 
 	serial_ctx_t *serial = throw_if_not_open(connection_id);
 	LLSERIAL_UNUSED_PARAM(serial);
@@ -164,11 +170,12 @@ void LLSERIAL_CONNECTION_IMPL_flush(int32_t connection_id) {
 }
 
 void LLSERIAL_CONNECTION_IMPL_close(int32_t connection_id) {
-	LLSERIAL_DEBUG_TRACE("[%s:%u] connection_id = %d \n", __FUNCTION__, __LINE__, connection_id);
+	VEEPORT_LOGGER_LOG_DBG("connection_id = %d", connection_id);
 
 	serial_ctx_t *serial = (serial_ctx_t *)connection_id;
 	if (NULL == serial) {
-		LLSERIAL_THROW_NATIVE_EXCEPTION(LLSERIAL_RETCODE_ERROR, LLSERIAL_CONNECTION_INVALID_PORT);
+		VEEPORT_LOGGER_LOG_DBG(LLSERIAL_CONNECTION_INVALID_PORT);
+		VEEPORT_ERRORS_throw_runtime_exception(RUNTIME_EXCEPTION_INVALID_ARGUMENT);
 		return;
 	}
 
@@ -199,11 +206,11 @@ void LLSERIAL_CONNECTION_IMPL_close(int32_t connection_id) {
 			return;     // Suspended: re-entry will finalize when UART_RX_DISABLED fires
 		}
 		// SNI suspend failed (e.g. GC context): fall through to immediate close
-		LLSERIAL_DEBUG_TRACE("[%s:%u] SNI suspend failed %d, closing immediately\n", __FUNCTION__, __LINE__, sni_ret);
+		VEEPORT_LOGGER_LOG_DBG("SNI suspend failed %d, closing immediately", sni_ret);
 	} else if (-EFAULT != err) {     // Ignore -EFAULT: RX already disabled
-		LLSERIAL_ERROR_TRACE("[%s:%u] Serial uart_rx_disable error %d (handle %p)\n", __FUNCTION__, __LINE__, err,
-		                     uart);
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
+		VEEPORT_LOGGER_LOG_ERR("Serial uart_rx_disable error %d (handle %p)", err,
+		                       uart);
+		VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
 	}
 
 	// Immediate close: RX already disabled (-EFAULT), error, or SNI suspend failed
@@ -213,8 +220,8 @@ finalize_close:
 	serial->close_java_thread_id = -1;
 	err = uart_tx_abort(uart);
 	if ((0 > err) && (-EFAULT != err)) {     // Ignore -EFAULT: no active transmission
-		LLSERIAL_ERROR_TRACE("[%s:%u] Serial uart_tx_abort error %d (handle %p)\n", __FUNCTION__, __LINE__, err, uart);
-		LLSERIAL_THROW_NATIVE_IO_EXCEPTION(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
+		VEEPORT_LOGGER_LOG_ERR("Serial uart_tx_abort error %d (handle %p)", err, uart);
+		VEEPORT_ERRORS_throw_caught_exception_message(LLSERIAL_IOEXCEPTION_GENERIC, LLSERIAL_CONNECTION_INTERNAL_ERROR);
 	}
 	serial->is_open = false;
 	SNI_resumeJavaThread(serial->tx.java_thread_id);

@@ -21,7 +21,7 @@ microej {
 dependencies {
     implementation(libs.api.edc)
     implementation(libs.api.bluetooth)
-    implementation("ej.library.iot:bluetooth-util:2.0.0")
+    implementation(libs.bluetooth.util)
 
     microejVee(project(":vee-port"))
 }

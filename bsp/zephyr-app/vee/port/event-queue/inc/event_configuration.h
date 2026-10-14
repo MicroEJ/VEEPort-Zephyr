@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 #ifndef  EVENT_CONFIGURATION_H
@@ -31,6 +32,9 @@ extern "C" {
 	#include "veeport_configuration.h"
 #endif // defined __has_include
 
+#include "veeport_logger.h"
+#include "veeport_errors.h"
+
 // ----------------------------------------------------------------------------
 // Macros and defines
 // ----------------------------------------------------------------------------
@@ -43,13 +47,13 @@ extern "C" {
 #endif // LLEVENT_QUEUE_SIZE
 
 /**
- * @brief Sets function used to print LLEVENT error logs. (default is printf)
+ * @brief Log module shared by every source file of the Event Queue Abstraction Layer.
+ *
+ * One source file registers the module with VEEPORT_LOGGER_DEFINE_MODULE() and the
+ * others declare it with VEEPORT_LOGGER_DECLARE_MODULE(). The verbosity is set with
+ * CONFIG_MICROEJ_EVENT_QUEUE_LOG_LEVEL.
  */
-#if !defined(LLEVENT_ERROR_TRACE)
-// cppcheck-suppress [misra-c2012-21.6]: The Standard Library input/output is only used for debug purpose.
-#include <stdio.h>
-#define LLEVENT_ERROR_TRACE  printf("[Event] Error, "); printf
-#endif // LLEVENT_ERROR_TRACE
+#define LLEVENT_LOG_MODULE microej_event_queue, VEEPORT_LOGGER_MODULE_LEVEL(EVENT_QUEUE)
 
 // ----------------------------------------------------------------------------
 // End

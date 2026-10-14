@@ -1,5 +1,6 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
 
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
@@ -10,15 +11,22 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(target app)
 
 # add sources
-target_include_directories(${target} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/inc)
-target_include_directories(${target} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/port/config)
+zephyr_include_directories(${CMAKE_CURRENT_LIST_DIR}/inc)
 
-if(CONFIG_MICROEJ_BT_SSL_SECURITY_ERROR)
-	message(FATAL_ERROR "Bluetooth cannot be enabled together with MICROEJ_SSL or MICROEJ_SECURITY due to Mbed TLS dependency conflicts.")
+if(CONFIG_MICROEJ_BT_SSL_ERROR)
+	message(FATAL_ERROR "Bluetooth cannot be enabled together with MICROEJ_SSL due to Mbed TLS dependency conflicts.")
+endif()
+
+if (CONFIG_VEEPORT_ESSENTIALS)
+	# Maps the critical section of VEE Port Essentials onto a Zephyr mutex, see veeport_configuration.h.
+	add_subdirectory(port/config)
 endif()
 
 if (CONFIG_MICROEJ_CORE)
 	add_subdirectory(port/core)
+endif()
+if (CONFIG_MICROEJ_CRYPTO)
+	add_subdirectory(port/crypto)
 endif()
 if (CONFIG_MICROEJ_BLUETOOTH)
 	add_subdirectory(port/bluetooth)
@@ -43,9 +51,6 @@ if (CONFIG_MICROEJ_MICROAI)
 endif()
 if (CONFIG_MICROEJ_NET)
 	add_subdirectory(port/net)
-endif()
-if (CONFIG_MICROEJ_SECURITY)
-	add_subdirectory(port/security)
 endif()
 if (CONFIG_MICROEJ_SERIAL)
 	add_subdirectory(port/serial)
@@ -72,12 +77,12 @@ if (CONFIG_MICROEJ_CORE)
 	)
 
 	if (CONFIG_VEE_LIB_LINK)
-		# Link Options
-		add_library(microEJRuntime STATIC IMPORTED)
-		set_target_properties(microEJRuntime PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/lib/microejruntime.a)
-		add_library(microEJApp STATIC IMPORTED)
-		set_target_properties(microEJApp PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/lib/microejapp.o)
-
-		target_link_libraries(${target} PRIVATE microEJRuntime microEJApp ${CMAKE_CURRENT_LIST_DIR}/lib/microejruntime.a)
+		# microejapp.o and microejruntime.a have a circular dependency: the application
+		# (microejapp.o) references the native pool in the runtime (microejruntime.a),
+		# while the runtime references SOAR-generated symbols in the application.
+		# List the object file first so ld links it whole (defining all the symbols the
+		# runtime needs), then scans the archive once to resolve the application's
+		# references. This single-pass order avoids having to repeat the archive.
+		target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/microejapp.o ${CMAKE_CURRENT_LIST_DIR}/lib/microejruntime.a)
 	endif()
 endif()

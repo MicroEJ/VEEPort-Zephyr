@@ -1,5 +1,9 @@
 // Copyright 2025-2026 MicroEJ Corp. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be found with this software.
+// Build: 7E4D1F7C
+
+// Swap the board onto its 1G Ethernet instance.
+#include <nxp,enet1g.overlay>
 
 / {
 	fstab {
@@ -21,11 +25,16 @@
 	aliases {
 		microej-serial0 = &lpuart2;
 	};
+};
 
+&lpuart2 {
+	status = "okay";
+	current-speed = <115200>;
 };
 
 &enet1g_mac {
-	 /delete-property/ zephyr,random-mac-address;
-	// local-mac-address = [<Your Mac address>];
+	/* Derive the MAC address from the SoC unique ID instead of randomizing it. */
+	/delete-property/ zephyr,random-mac-address;
+	/* local-mac-address = [<Your Mac address>]; */
 	nxp,unique-mac;
 };

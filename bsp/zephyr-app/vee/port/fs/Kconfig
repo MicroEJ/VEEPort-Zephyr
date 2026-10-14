@@ -1,5 +1,6 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
 
 
 config MICROEJ_FS
@@ -7,6 +8,14 @@ config MICROEJ_FS
 	default y
 
 if MICROEJ_FS
+
+module = MICROEJ_FS
+module-str = the MicroEJ File System Abstraction Layer
+# Default to ERR instead of LOG_DEFAULT_LEVEL. Keep this block before the template: the first default wins.
+choice MICROEJ_FS_LOG_LEVEL_CHOICE
+	default MICROEJ_FS_LOG_LEVEL_ERR
+endchoice
+source "subsys/logging/Kconfig.template.log_config"
 
 choice
 	prompt "Filesystem backend"
@@ -64,7 +73,8 @@ config MICROEJ_FS_WORKER_STACK_SIZE
 
 config MICROEJ_FS_WORKER_PRIORITY
 	int "Priority of the FS workers."
-	default 6
+	# Must stay above the VM (CONFIG_MAIN_THREAD_PRIORITY), see main/prj.conf.
+	default 2
 
 config MICROEJ_FS_IO_BUFFER_SIZE
 	int "Size of the IO buffer in bytes used to read/write operations."

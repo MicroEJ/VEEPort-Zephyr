@@ -1,6 +1,7 @@
 /*
  * Copyright 2024-2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -79,42 +80,13 @@ struct bt_conn * bt_event_get_connection();
 uint16_t bt_event_get_current_connection_handle();
 
 /**
- *  @brief Puts the pair response in the queue of the bt_event_pairing_accept event
+ *  @brief Puts the pair response in the queue of the bt_event_pairing_confirm event
  *
  *  @param data     Value of the pair response
  *
  * 	@return         0 if success, error code otherwise
  */
 int bt_event_pairing_request_put(int8_t *data);
-
-/** @brief Query to proceed incoming pairing or not.
- *
- *  On any incoming pairing req/rsp this callback will be called for
- *  the application to decide whether to allow for the pairing to
- *  continue.
- *
- *  The pairing info received from the peer is passed to assist
- *  making the decision.
- *
- *  As this callback is synchronous the application should return
- *  a response value immediately. Otherwise it may affect the
- *  timing during pairing. Hence, this information should not be
- *  conveyed to the user to take action.
- *
- *  The remaining callbacks are not affected by this, but do notice
- *  that other callbacks can be called during the pairing. Eg. if
- *  pairing_confirm is registered both will be called for Just-Works
- *  pairings.
- *
- *  This callback may be unregistered in which case pairing continues
- *  as if the Kconfig flag was not set.
- *
- *  This callback is not called for BR/EDR Secure Simple Pairing (SSP).
- *
- *  @param conn Connection where pairing is initiated.
- *  @param feat Pairing req/resp info.
- */
-enum bt_security_err bt_event_pairing_accept(struct bt_conn *conn, const struct bt_conn_pairing_feat *const feat);
 
 /** @brief notify that pairing procedure was complete.
  *
@@ -126,6 +98,34 @@ enum bt_security_err bt_event_pairing_accept(struct bt_conn *conn, const struct 
  *                pairing procedure.
  */
 void bt_event_pairing_complete(struct bt_conn *conn, bool bonded);
+
+/**
+ * @brief notify that the pairing procedure failed.
+ *
+ * This callback notifies the user that the pairing procedure has failed with the provided reason code.
+ *
+ * @param conn Connection object.
+ * @param reason Reason for the pairing failure.
+ */
+void bt_event_pairing_failed(struct bt_conn *conn, enum bt_security_err reason);
+
+/**
+ * @brief notify that the pairing procedure is cancelled.
+ *
+ * This callback notifies the user that the pairing procedure has been cancelled.
+ *
+ * @param conn Connection object.
+ */
+void bt_event_pairing_cancel(struct bt_conn *conn);
+
+/**
+ * @brief notify a pairing confirmation.
+ *
+ * This callback notifies the user that the pairing needs to be confirmed.
+ *
+ * @param conn Connection object.
+ */
+void bt_event_pairing_confirm(struct bt_conn *conn);
 
 /** @brief A new connection has been established.
  *
@@ -247,6 +247,90 @@ void bt_event_indication_destroy(struct bt_gatt_indicate_params *params);
  *  @param err ATT error code
  */
 void bt_event_indication_cb(struct bt_conn *conn, struct bt_gatt_indicate_params *params, uint8_t err);
+
+/**
+ * @brief Notification complete callback.
+ *
+ * @param conn Connection object.
+ * @param user_data User defined data: used here to pass a pointer to the attribute handle.
+ */
+void bt_event_notification_complete(struct bt_conn *conn, void *user_data);
+
+/**
+ *  @brief Sets the scan filter parameters applied to incoming scan results.
+ *
+ *  @param action    One of SCAN_FILTER_ACTION_* values
+ *  @param type      AD type to match
+ *  @param data      AD data to match (may be NULL when action is FIELD_EXISTS)
+ *  @param data_size Length of data
+ */
+void bt_event_set_scan_filter(uint8_t action, uint8_t type, const uint8_t *data, uint8_t data_size);
+
+/**
+ * @brief Callback for reporting LE scan results.
+ *
+ * A function given to the @ref bt_le_scan_start function
+ * and will be called for any discovered LE device.
+ *
+ * @param addr Advertiser LE address and type.
+ * @param rssi Strength of advertiser signal.
+ * @param adv_type Type of advertising response from advertiser.
+ *                 Uses the @ref bt_gap_adv_type values.
+ * @param buf Buffer containing advertiser data.
+ */
+void bt_event_scan_device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type, struct net_buf_simple *ad);
+
+/**
+ * @brief Emits the EVENT_GAP_SCAN_COMPLETED event to the application.
+ *
+ * Called when LE scanning stops, whether explicitly via stopScanning() or implicitly when a
+ * connection is initiated.
+ */
+void bt_event_scan_completed(void);
+
+/**
+ * @brief Sends a GATTC discovery result event for one discovered service.
+ *
+ * @param conn          Active BLE connection object.
+ * @param service_handle  Handle of the discovered service.
+ * @param service_uuid    UUID of the discovered service.
+ * @param num_attributes  Number of attributes (characteristics + descriptors) in the service.
+ * @param attrs           Array of attributes to copy into the event.
+ */
+void bt_event_search_result(struct bt_conn *conn, uint16_t service_handle,
+                            const LLBLUETOOTH_uuid_t *service_uuid,
+                            uint8_t num_attributes,
+                            const LLBLUETOOTH_gattc_attribute_t *attrs);
+
+/**
+ * @brief Sends a GATTC discovery complete event.
+ *
+ * @param conn          Active BLE connection object.
+ */
+void bt_event_search_complete(struct bt_conn *conn);
+
+uint8_t bt_event_read_complete(struct bt_conn *conn, uint8_t att_err,
+                               struct bt_gatt_read_params *params, const void *data, uint16_t read_len);
+
+/**
+ * @brief Sends a GATTC write completed event.
+ *
+ * @param conn       Active BLE connection object.
+ * @param status     ATT error code (0 = success).
+ * @param attr_handle  Handle of the written attribute.
+ */
+void bt_event_write_complete(struct bt_conn *conn, uint8_t status, uint16_t attr_handle);
+
+/**
+ * @brief Sends a GATTC notification received event.
+ *
+ * @param conn        Active BLE connection object.
+ * @param attr_handle Handle of the characteristic value that sent the notification.
+ * @param data        Notification payload.
+ * @param length      Length of the payload in bytes.
+ */
+void bt_event_notification_received(struct bt_conn *conn, uint16_t attr_handle,
+                                    const void *data, uint16_t length);
 
 #ifdef __cplusplus
 }

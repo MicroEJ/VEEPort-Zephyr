@@ -1,7 +1,20 @@
 # Copyright 2026 MicroEJ Corp. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be found with this software.
+# Build: 7E4D1F7C
 
 
 config MICROEJ_EVENT_QUEUE
 	bool "Build Event Queue Abstraction Layer"
 	default y
+
+if MICROEJ_EVENT_QUEUE
+
+module = MICROEJ_EVENT_QUEUE
+module-str = the MicroEJ Event Queue Abstraction Layer
+# Default to ERR instead of LOG_DEFAULT_LEVEL. Keep this block before the template: the first default wins.
+choice MICROEJ_EVENT_QUEUE_LOG_LEVEL_CHOICE
+	default MICROEJ_EVENT_QUEUE_LOG_LEVEL_ERR
+endchoice
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # MICROEJ_EVENT_QUEUE

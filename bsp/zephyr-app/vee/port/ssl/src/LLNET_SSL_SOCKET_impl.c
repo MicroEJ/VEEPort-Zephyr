@@ -1,54 +1,28 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
-#define MBEDTLS_ALLOW_PRIVATE_ACCESS
-
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif // !defined(MBEDTLS_CONFIG_FILE)
-
-#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-#include "mbedtls/build_info.h"
-#endif // (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-
-#if defined(MBEDTLS_PLATFORM_C)
-#include "mbedtls/platform.h"
-#else
-#include <stdlib.h>
-#define mbedtls_calloc    calloc
-#define mbedtls_free      free
-#endif
-
-#include "mbedtls/ssl.h"
-#include "mbedtls/net_sockets.h"
-#if defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#endif
+#include <mbedtls/build_info.h>
+#include <mbedtls/platform.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/net_sockets.h>
+#include <psa/crypto.h>
 #include "LLNET_Common.h"
 #include "LLNET_CHANNEL_impl.h"
 #include "LLNET_SSL_mbedtls_configuration.h"
+#include "LLNET_SSL_mbedtls_context.h"
 #include "LLNET_SSL_ERRORS.h"
 #include "LLNET_SSL_utils_mbedtls.h"
 #include "LLNET_SSL_SOCKET_impl.h"
 #include "LLNET_SSL_CONSTANTS.h"
 #include <stdio.h>
 
+VEEPORT_LOGGER_DEFINE_MODULE(LLNET_SSL_LOG_MODULE)
+
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#if defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
-/* Global variable for entropy in drbg context */
-mbedtls_ctr_drbg_context ctr_drbg;
-static mbedtls_entropy_context entropy;
-
-/* personalization string for the drbg */
-const char *DRBG_PERS = "mbed TLS microEJ client";
 #endif
 
 /* static functions */
@@ -68,9 +42,17 @@ static int32_t LLNET_SSL_SOCKET_write(int32_t sslID, int32_t fd, int8_t *buf, in
 static void LLNET_SSL_SOCKET_close_callback(int32_t sslID, int32_t fd, uint8_t autoclose, int64_t absoluteJavaStartTime,
                                             int32_t relativeTimeout);
 
+/**
+ * Returns the Mbed TLS connection state behind a socket ID, or NULL for an invalid ID.
+ */
+static mbedtls_ssl_context * llnet_ssl_get_ssl_context(int32_t sslID) {
+	llnet_ssl_socket *sock = (llnet_ssl_socket *)(sslID);
+	return (NULL == sock) ? NULL : &sock->ssl;
+}
+
 static void LLNET_SSL_SOCKET_initialHandShake_callback(int32_t sslID, int32_t fd, int64_t absoluteJavaStartTime,
                                                        int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d)\n", __func__, (int)sslID, (int)fd);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d", (int)sslID, (int)fd);
 	uint32_t delta32 = 0;
 	//get the time diff between the start time of the LL call and the time from which the current absolute timeout was
 	// computed.
@@ -82,11 +64,11 @@ static void LLNET_SSL_SOCKET_initialHandShake_callback(int32_t sslID, int32_t fd
 
 static void LLNET_SSL_SOCKET_initialHandShake(int32_t sslID, int32_t fd, int64_t absoluteJavaStartTime,
                                               int64_t absoluteTimeout, int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d)\n", __func__, (int)sslID, (int)fd);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d", (int)sslID, (int)fd);
 
-	mbedtls_ssl_context *ssl_ctx = (mbedtls_ssl_context *)(sslID);
+	mbedtls_ssl_context *ssl_ctx = llnet_ssl_get_ssl_context(sslID);
 	if (NULL == ssl_ctx) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return;
 	}
 	LLNET_SSL_utils_mbedtls_on_bio_start();
@@ -102,13 +84,12 @@ static void LLNET_SSL_SOCKET_initialHandShake(int32_t sslID, int32_t fd, int64_t
 		                                        (void *)delta32);
 	}
 
-	LLNET_SSL_DEBUG_TRACE("%s HandShake (ssl=%d, fd=%d) ret=%d\n", __func__, (int)sslID, (int)fd, (int)ret);
+	VEEPORT_LOGGER_LOG_DBG("HandShake (ssl=%d, fd=%d) ret=%d", (int)sslID, (int)fd, (int)ret);
 }
 
 static int32_t LLNET_SSL_SOCKET_read_callback(int32_t sslID, int32_t fd, int8_t *buf, int32_t off, int32_t len,
                                               int64_t absoluteJavaStartTime, int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, offset=%d, length=%d)\n", __func__, (int)sslID, (int)fd, (int)off,
-	                      (int)len);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, offset=%d, length=%d", (int)sslID, (int)fd, (int)off, (int)len);
 	uint32_t delta32 = 0;
 	//get the time diff between the start time of the LL call and the time from which the current absolute timeout was
 	// computed.
@@ -122,10 +103,9 @@ static int32_t LLNET_SSL_SOCKET_read_callback(int32_t sslID, int32_t fd, int8_t 
 static int32_t LLNET_SSL_SOCKET_read(int32_t sslID, int32_t fd, int8_t *buf, int32_t off, int32_t len,
                                      int64_t absoluteJavaStartTime, int64_t absoluteTimeout, int32_t relativeTimeout,
                                      SNI_callback callback) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, offset=%d, length=%d)\n", __func__, (int)sslID, (int)fd, (int)off,
-	                      (int)len);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, offset=%d, length=%d", (int)sslID, (int)fd, (int)off, (int)len);
 
-	mbedtls_ssl_context *ssl = (mbedtls_ssl_context *)(sslID);
+	mbedtls_ssl_context *ssl = llnet_ssl_get_ssl_context(sslID);
 	LLNET_SSL_utils_mbedtls_on_bio_start();
 	int32_t ret = mbedtls_ssl_read(ssl, (unsigned char *)buf + off, len);
 
@@ -148,8 +128,7 @@ static int32_t LLNET_SSL_SOCKET_read(int32_t sslID, int32_t fd, int8_t *buf, int
 
 static int32_t LLNET_SSL_SOCKET_write_callback(int32_t sslID, int32_t fd, int8_t *buf, int32_t off, int32_t len,
                                                int64_t absoluteJavaStartTime, int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, offset=%d, length=%d)\n", __func__, (int)sslID, (int)fd, (int)off,
-	                      (int)len);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, offset=%d, length=%d", (int)sslID, (int)fd, (int)off, (int)len);
 	uint32_t delta32 = 0;
 	//get the time diff between the start time of the LL call and the time from which the current absolute timeout was
 	// computed.
@@ -161,10 +140,9 @@ static int32_t LLNET_SSL_SOCKET_write_callback(int32_t sslID, int32_t fd, int8_t
 
 static int32_t LLNET_SSL_SOCKET_write(int32_t sslID, int32_t fd, int8_t *buf, int32_t off, int32_t len,
                                       int64_t absoluteJavaStartTime, int64_t absoluteTimeout, int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, offset=%d, length=%d)\n", __func__, (int)sslID, (int)fd, (int)off,
-	                      (int)len);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, offset=%d, length=%d", (int)sslID, (int)fd, (int)off, (int)len);
 
-	mbedtls_ssl_context *ssl = (mbedtls_ssl_context *)(sslID);
+	mbedtls_ssl_context *ssl = llnet_ssl_get_ssl_context(sslID);
 	LLNET_SSL_utils_mbedtls_on_bio_start();
 	int ret = mbedtls_ssl_write(ssl, (const unsigned char *)buf + off, len);
 
@@ -176,7 +154,7 @@ static int32_t LLNET_SSL_SOCKET_write(int32_t sslID, int32_t fd, int8_t *buf, in
 	if (0 == ret) {
 		//should not happen
 		//0 byte written
-		SNI_throwNativeIOException(J_EUNKNOWN, "0 byte written");
+		VEEPORT_ERRORS_throw_caught_exception_message(J_EUNKNOWN, "0 byte written");
 		return 0;
 	}
 
@@ -208,78 +186,81 @@ static void LLNET_SSL_SOCKET_close_callback(int32_t sslID, int32_t fd, uint8_t a
 }
 
 void LLNET_SSL_SOCKET_IMPL_initialize(void) {
-	LLNET_SSL_DEBUG_TRACE("%s()\n", __func__);
+	VEEPORT_LOGGER_LOG_DBG("");
 
-#if defined(MBEDTLS_ENTROPY_C) && defined(MBEDTLS_CTR_DRBG_C)
-	mbedtls_entropy_init(&entropy);
-	mbedtls_ctr_drbg_init(&ctr_drbg);
-
-	int ret;
-	if ((ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-	                                 (const unsigned char *)DRBG_PERS,
-	                                 sizeof (DRBG_PERS))) != 0) {
-		LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_crt_drbg_init", ret);
-		SNI_throwNativeIOException(LLNET_SSL_TranslateReturnCode(ret), "MbedTLS init failed");
+	/* Since Mbed TLS 4 every random number, key and handshake goes through PSA Crypto, which must be
+	 * initialized first. psa_crypto_init() is idempotent, so sharing it with the Crypto port is fine. */
+	psa_status_t status = psa_crypto_init();
+	if (PSA_SUCCESS != status) {
+		VEEPORT_LOGGER_LOG_DBG("psa_crypto_init failed: %d", (int)status);
+		VEEPORT_ERRORS_throw_caught_exception(J_RNG_FAILURE_ERROR);
 		return;
 	}
-#endif
 }
 
 int32_t LLNET_SSL_SOCKET_IMPL_create(int32_t contextID, int32_t fd, uint8_t *hostname, int32_t hostnameLength,
                                      bool autoclose, uint8_t useClientMode, uint8_t needClientAuth) {
-	LLNET_SSL_DEBUG_TRACE("%s(context=%d, fd=%d, autoclose=%d, useClientMode=%d, needClientAuth=%d)\n", __func__,
-	                      (int)contextID, (int)fd, autoclose, useClientMode, needClientAuth);
-	mbedtls_ssl_config *conf = (mbedtls_ssl_config *)(contextID);
-	mbedtls_ssl_context *ssl_ctx = (mbedtls_ssl_context *)mbedtls_calloc(1, sizeof(mbedtls_ssl_context));
+	VEEPORT_LOGGER_LOG_DBG("context=%d, fd=%d, autoclose=%d, useClientMode=%d, needClientAuth=%d", (int)contextID,
+	                       (int)fd, autoclose, useClientMode, needClientAuth);
+	(void)hostnameLength;
+	llnet_ssl_context *ctx = (llnet_ssl_context *)(contextID);
 
-	if (conf != NULL && ssl_ctx != NULL) {
-		/* It is possible to disable authentication by passing
-		 * MBEDTLS_SSL_VERIFY_NONE in the call to mbedtls_ssl_conf_authmode()
-		 */
-		if (useClientMode || needClientAuth) {
-			mbedtls_ssl_conf_authmode(conf, MBEDTLS_SSL_VERIFY_REQUIRED);
-		} else {
-			mbedtls_ssl_conf_authmode(conf, MBEDTLS_SSL_VERIFY_NONE);
-		}
-
-		mbedtls_ssl_init(ssl_ctx);
-		mbedtls_ssl_set_hostname(ssl_ctx, (char *)hostname);
-
-		int ret = 0;
-		if ((ret = mbedtls_ssl_setup(ssl_ctx, conf)) != 0) {
-			mbedtls_ssl_free(ssl_ctx);
-			mbedtls_free((void *)ssl_ctx);
-			LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_ssl_setup", ret);
-			SNI_throwNativeIOException(LLNET_SSL_TranslateReturnCode(ret), "MbedTLS SSL context setup failed");
-			return SNI_IGNORED_RETURNED_VALUE;
-		}
-
-		int *net_socket = (int *)mbedtls_calloc(1, sizeof(int));
-		if (NULL != net_socket) {
-			*(net_socket) = fd;
-			mbedtls_ssl_set_bio(ssl_ctx, (void *)net_socket, LLNET_SSL_utils_mbedtls_send, LLNET_SSL_utils_mbedtls_recv,
-			                    NULL);
-		} else {
-			mbedtls_ssl_free(ssl_ctx);
-			mbedtls_free((void *)ssl_ctx);
-			SNI_throwNativeIOException(J_MEMORY_ERROR, "Not enough memory");
-			return SNI_IGNORED_RETURNED_VALUE;
-		}
-	} else {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+	if (NULL == ctx) {
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 
-	return (int32_t)ssl_ctx;
+	llnet_ssl_socket *sock = (llnet_ssl_socket *)mbedtls_calloc(1, sizeof(llnet_ssl_socket));
+	if (NULL == sock) {
+		VEEPORT_ERRORS_throw_caught_exception(J_MEMORY_ERROR);
+		return SNI_IGNORED_RETURNED_VALUE;
+	}
+
+	/* It is possible to disable authentication by passing
+	 * MBEDTLS_SSL_VERIFY_NONE in the call to mbedtls_ssl_conf_authmode()
+	 */
+	if ((0 != useClientMode) || (0 != needClientAuth)) {
+		mbedtls_ssl_conf_authmode(&ctx->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+	} else {
+		mbedtls_ssl_conf_authmode(&ctx->conf, MBEDTLS_SSL_VERIFY_NONE);
+	}
+
+	mbedtls_ssl_init(&sock->ssl);
+	sock->fd = fd;
+
+	/* Always called, even with a NULL hostname: Mbed TLS refuses to verify a server certificate when the
+	 * hostname was never set, but accepts an explicit "no hostname". */
+	int ret = mbedtls_ssl_set_hostname(&sock->ssl, (const char *)hostname);
+	if (0 != ret) {
+		mbedtls_ssl_free(&sock->ssl);
+		mbedtls_free((void *)sock);
+		LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_ssl_set_hostname", ret);
+		LLNET_SSL_throw_mbedtls_error(ret, "MbedTLS SSL hostname setup failed");
+		return SNI_IGNORED_RETURNED_VALUE;
+	}
+
+	ret = mbedtls_ssl_setup(&sock->ssl, &ctx->conf);
+	if (0 != ret) {
+		mbedtls_ssl_free(&sock->ssl);
+		mbedtls_free((void *)sock);
+		LLNET_SSL_DEBUG_MBEDTLS_TRACE("mbedtls_ssl_setup", ret);
+		LLNET_SSL_throw_mbedtls_error(ret, "MbedTLS SSL context setup failed");
+		return SNI_IGNORED_RETURNED_VALUE;
+	}
+
+	mbedtls_ssl_set_bio(&sock->ssl, (void *)&sock->fd, LLNET_SSL_utils_mbedtls_send, LLNET_SSL_utils_mbedtls_recv,
+	                    NULL);
+
+	return (int32_t)sock;
 }
 
 void LLNET_SSL_SOCKET_IMPL_shutdown(int32_t sslID, int32_t fd, bool autoclose, int64_t absoluteJavaStartTime,
                                     int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, autoclose=%d)\n", __func__, (int)sslID, (int)fd, autoclose);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, autoclose=%d", (int)sslID, (int)fd, autoclose);
 
-	mbedtls_ssl_context *ssl_ctx = (mbedtls_ssl_context *)(sslID);
+	mbedtls_ssl_context *ssl_ctx = llnet_ssl_get_ssl_context(sslID);
 	if (NULL == ssl_ctx) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return;
 	}
 
@@ -304,50 +285,44 @@ void LLNET_SSL_SOCKET_IMPL_shutdown(int32_t sslID, int32_t fd, bool autoclose, i
 			absoluteTimeout = (0 == relativeTimeout) ? 0 : LLNET_current_time_ms() + relativeTimeout;
 		}while (res > 0);
 	}
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, autoclose=%d) free SSL\n", __func__, (int)sslID, (int)fd, (int)autoclose);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, autoclose=%d: free SSL", (int)sslID, (int)fd, (int)autoclose);
 }
 
 void LLNET_SSL_SOCKET_IMPL_freeSSL(int32_t sslID) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d)\n", __func__, (int)sslID);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d", (int)sslID);
 
-	mbedtls_ssl_context *ssl_ctx = (mbedtls_ssl_context *)(sslID);
-	if (NULL == ssl_ctx) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+	llnet_ssl_socket *sock = (llnet_ssl_socket *)(sslID);
+	if (NULL == sock) {
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return;
 	}
 
-	//free BIO
-	if (ssl_ctx->p_bio) {
-		mbedtls_free(ssl_ctx->p_bio);
-	}
-
-	//free SSL
-	mbedtls_ssl_free(ssl_ctx);
-	mbedtls_free((void *)ssl_ctx);
+	/* The BIO context is the fd embedded in the socket: freeing the socket frees it. */
+	mbedtls_ssl_free(&sock->ssl);
+	mbedtls_free((void *)sock);
 }
 
 void LLNET_SSL_SOCKET_IMPL_initialClientHandShake(int32_t sslID, int32_t fd, int64_t absoluteJavaStartTime,
                                                   int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d)\n", __func__, (int)sslID, (int)fd);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d", (int)sslID, (int)fd);
 	int64_t absoluteTimeout = (0 == relativeTimeout) ? 0 : absoluteJavaStartTime + relativeTimeout;
 	LLNET_SSL_SOCKET_initialHandShake(sslID, fd, absoluteJavaStartTime, absoluteTimeout, relativeTimeout);
 }
 
 void LLNET_SSL_SOCKET_IMPL_initialServerHandShake(int32_t sslID, int32_t fd, int64_t absoluteJavaStartTime,
                                                   int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d)\n", __func__, (int)sslID, (int)fd);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d", (int)sslID, (int)fd);
 	int64_t absoluteTimeout = (0 == relativeTimeout) ? 0 : absoluteJavaStartTime + relativeTimeout;
 	LLNET_SSL_SOCKET_initialHandShake(sslID, fd, absoluteJavaStartTime, absoluteTimeout, relativeTimeout);
 }
 
 int32_t LLNET_SSL_SOCKET_IMPL_read(int32_t sslID, int32_t fd, int8_t *buf, int32_t off, int32_t len,
                                    int64_t absoluteJavaStartTime, int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, offset=%d, length=%d)\n", __func__, (int)sslID, (int)fd, (int)off,
-	                      (int)len);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, offset=%d, length=%d", (int)sslID, (int)fd, (int)off, (int)len);
 
-	mbedtls_ssl_context *ssl_ctx = (mbedtls_ssl_context *)(sslID);
+	mbedtls_ssl_context *ssl_ctx = llnet_ssl_get_ssl_context(sslID);
 	if (NULL == ssl_ctx) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 	int64_t absoluteTimeout = (0 == relativeTimeout) ? 0 : absoluteJavaStartTime + relativeTimeout;
@@ -357,11 +332,10 @@ int32_t LLNET_SSL_SOCKET_IMPL_read(int32_t sslID, int32_t fd, int8_t *buf, int32
 
 int32_t LLNET_SSL_SOCKET_IMPL_write(int32_t sslID, int32_t fd, int8_t *buf, int32_t off, int32_t len,
                                     int64_t absoluteJavaStartTime, int32_t relativeTimeout) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d, fd=%d, offset=%d, length=%d)\n", __func__, (int)sslID, (int)fd, (int)off,
-	                      (int)len);
-	mbedtls_ssl_context *ssl_ctx = (mbedtls_ssl_context *)(sslID);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d, fd=%d, offset=%d, length=%d", (int)sslID, (int)fd, (int)off, (int)len);
+	mbedtls_ssl_context *ssl_ctx = llnet_ssl_get_ssl_context(sslID);
 	if (NULL == ssl_ctx) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 	int64_t absoluteTimeout = (0 == relativeTimeout) ? 0 : absoluteJavaStartTime + relativeTimeout;
@@ -369,11 +343,11 @@ int32_t LLNET_SSL_SOCKET_IMPL_write(int32_t sslID, int32_t fd, int8_t *buf, int3
 }
 
 int32_t LLNET_SSL_SOCKET_IMPL_available(int32_t sslID) {
-	LLNET_SSL_DEBUG_TRACE("%s(ssl=%d)\n", __func__, (int)sslID);
+	VEEPORT_LOGGER_LOG_DBG("ssl=%d", (int)sslID);
 
-	mbedtls_ssl_context *ssl_ctx = (mbedtls_ssl_context *)(sslID);
+	mbedtls_ssl_context *ssl_ctx = llnet_ssl_get_ssl_context(sslID);
 	if (NULL == ssl_ctx) {
-		SNI_throwNativeIOException(J_BAD_FUNC_ARG, "Invalid argument");
+		VEEPORT_ERRORS_throw_caught_exception(J_BAD_FUNC_ARG);
 		return SNI_IGNORED_RETURNED_VALUE;
 	}
 

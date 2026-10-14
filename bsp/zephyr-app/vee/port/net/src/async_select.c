@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -13,6 +14,9 @@
 #include "async_select.h"
 #include "async_select_configuration.h"
 #include "LLNET_Common.h"
+#include "LLNET_ERRORS.h"
+
+VEEPORT_LOGGER_DECLARE_MODULE(LLNET_LOG_MODULE)
 
 #ifdef __cplusplus
 extern "C" {
@@ -161,12 +165,13 @@ int32_t async_select(int32_t fd, select_operation operation, int64_t absolute_ti
 	async_select_Request *request = async_select_allocate_request();
 	if (request == NULL) {
 		// No request available :-(
-		SNI_throwNativeIOException(-1, "async_select cannot allocate new request");
+		VEEPORT_LOGGER_LOG_ERR("async_select cannot allocate a new request");
+		VEEPORT_ERRORS_throw_caught_exception(J_ENOMEM);
 		return -1;
 	}
 
-	LLNET_DEBUG_TRACE("async_select: async_select on fd=0x%X operation=%s thread 0x%X\n", fd,
-	                  operation == SELECT_READ ? "read":"write", java_thread_id);
+	VEEPORT_LOGGER_LOG_DBG("async_select: async_select on fd=0x%X operation=%s thread 0x%X", fd,
+	                       operation == SELECT_READ ? "read":"write", java_thread_id);
 	request->java_thread_id = java_thread_id;
 	request->fd = fd;
 	request->operation = operation;
@@ -195,7 +200,7 @@ int32_t async_select(int32_t fd, select_operation operation, int64_t absolute_ti
 	                                         (SNI_closeFunction)async_select_free_used_request_by_java_thread_id,
 	                                         NULL)) {
 		//registration fail
-		SNI_throwNativeIOException(-1, "async_select cannot register scoped resource");
+		VEEPORT_ERRORS_throw_caught_exception_message(J_EUNKNOWN, "async_select cannot register scoped resource");
 		//free the allocated request
 		async_select_free_unused_request(request);
 		return -1;
@@ -203,7 +208,7 @@ int32_t async_select(int32_t fd, select_operation operation, int64_t absolute_ti
 
 	if (SNI_OK != SNI_suspendCurrentJavaThreadWithCallback(relative_timeout_ms, callback, callback_suspend_arg)) {
 		//suspend fails
-		SNI_throwNativeIOException(-1, "async_select cannot suspend current java thread");
+		VEEPORT_ERRORS_throw_caught_exception_message(J_EUNKNOWN, "async_select cannot suspend current java thread");
 		//unregister the scoped resource and free the allocated request
 		SNI_unregisterScopedResource();
 		async_select_free_unused_request(request);
@@ -345,11 +350,11 @@ static int32_t async_select_get_notify_fd() {
 				return notify_fd;
 			}
 		}
-		LLNET_DEBUG_TRACE("Binding failed with return value %d and err %d\n", ret, llnet_errno(fd));
+		VEEPORT_LOGGER_LOG_DBG("Binding failed with return value %d and err %d", ret, llnet_errno(fd));
 		// Something was wrong when configuring the notify_fd
 		llnet_close(notify_fd);
 	} else {
-		LLNET_DEBUG_TRACE("Wasn't able to create the socket\n");
+		VEEPORT_LOGGER_LOG_DBG("Wasn't able to create the socket");
 	}
 
 	return -1;
@@ -380,7 +385,7 @@ static void async_select_do_select() {
 		// To prevent an infinite lock of the select we will poll for
 		// incoming messages by setting a timeout to the select.
 		min_absolute_timeout_ms = async_select_get_current_time_ms() + ASYNC_SELECT_POLLING_MODE_TIMEOUT_MS;
-		LLNET_DEBUG_TRACE("async_select: WARNING: notify_fd cannot be allocated, fall back in polling mode\n");
+		VEEPORT_LOGGER_LOG_DBG("async_select: WARNING: notify_fd cannot be allocated, fall back in polling mode");
 	}
 
 	// -----------------------------------------------------------------
@@ -442,8 +447,8 @@ static void async_select_do_select() {
 	// --------------
 	//  Do the select
 	// --------------
-	LLNET_DEBUG_TRACE("async_select: select (timeout sec=%d usec=%d)\n", (int32_t)select_timeout.tv_sec,
-	                  (int32_t)select_timeout.tv_usec);
+	VEEPORT_LOGGER_LOG_DBG("async_select: select (timeout sec=%d usec=%d)", (int32_t)select_timeout.tv_sec,
+	                       (int32_t)select_timeout.tv_usec);
 	int32_t res = select(max_request_fd + 1, &read_fds, &write_fds, NULL, select_timeout_ptr);
 
 	if (res >= 0 || llnet_errno(-1) == EBADF) {
@@ -462,7 +467,7 @@ static void async_select_do_select() {
 		}
 #endif
 
-		LLNET_DEBUG_TRACE("async_select: select finished %d sockets available\n", res);
+		VEEPORT_LOGGER_LOG_DBG("async_select: select finished %d sockets available", res);
 	}
 }
 
@@ -515,9 +520,9 @@ void async_select_update_notified_requests(int32_t fd, uint8_t on_read, uint8_t 
 		    || (request_timeout_reached) // or timeout reached
 		    ) {
 			// Request done.
-			LLNET_DEBUG_TRACE("async_select: request done for fd=0x%X operation=%s notify thread 0x%X (%s)\n",
-			                  request_fd, request->operation == SELECT_READ ? "read":"write", request->java_thread_id,
-			                  request_timeout_reached == true ? "timeout":"no timeout");
+			VEEPORT_LOGGER_LOG_DBG("async_select: request done for fd=0x%X operation=%s notify thread 0x%X (%s)",
+			                       request_fd, request->operation == SELECT_READ ? "read":"write",
+			                       request->java_thread_id, request_timeout_reached == true ? "timeout":"no timeout");
 			SNI_resumeJavaThread(request->java_thread_id);
 			request = async_select_free_used_request(request, previous_request);
 			//previous_request is still the same because we have removed request from the used FIFO
@@ -686,7 +691,7 @@ static void async_select_notify_select() {
 #endif // ASYNC_SELECT_USE_PIPE_FOR_NOTIFICATION
 
 	if (res == -1) {
-		LLNET_DEBUG_TRACE("Error on notify select (notify_fd: 0x%X errno: %d)\n", notify_fd, llnet_errno(notify_fd));
+		VEEPORT_LOGGER_LOG_DBG("Error on notify select (notify_fd: 0x%X errno: %d)", notify_fd, llnet_errno(notify_fd));
 	}
 }
 

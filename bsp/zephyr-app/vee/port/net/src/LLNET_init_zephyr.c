@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 #include <zephyr/kernel.h>
@@ -13,12 +14,14 @@
 
 #include "LLNET_Common.h"
 
+VEEPORT_LOGGER_DECLARE_MODULE(LLNET_LOG_MODULE)
+
 static struct net_mgmt_event_callback mgmt_cb;
 static struct net_dhcpv4_option_callback dhcp_cb;
 
 static void start_dhcpv4_client(struct net_if *iface, void *user_data) {
 	(void)(user_data);
-	LLNET_DEBUG_TRACE("Start interface %s: index=%d\n", net_if_get_device(iface)->name, net_if_get_by_iface(iface));
+	VEEPORT_LOGGER_LOG_DBG("Start interface %s: index=%d", net_if_get_device(iface)->name, net_if_get_by_iface(iface));
 	net_dhcpv4_start(iface);
 }
 
@@ -30,28 +33,27 @@ static void dhcpv4_client_callback(struct net_mgmt_event_callback *cb, uint64_t 
 	}
 
 	for (i = 0; i < NET_IF_MAX_IPV4_ADDR; i++) {
-		#ifdef LLNET_DEBUG
 		char buf[NET_IPV4_ADDR_LEN];
-		#endif
 
 		if (iface->config.ip.ipv4->unicast[i].ipv4.addr_type != NET_ADDR_DHCP) {
 			continue;
 		}
 
-		LLNET_DEBUG_TRACE("%s: interface configuration is:\n", __func__);
-		LLNET_DEBUG_TRACE("   Address[%d]: %s\n", net_if_get_by_iface(iface),
-		                  net_addr_ntop(AF_INET, &iface->config.ip.ipv4->unicast[i].ipv4.address.in_addr, buf,
-		                                sizeof(buf)));
-		LLNET_DEBUG_TRACE("    Subnet[%d]: %s\n", net_if_get_by_iface(iface),
-		                  net_addr_ntop(AF_INET, &iface->config.ip.ipv4->unicast[i].netmask, buf, sizeof(buf)));
-		LLNET_DEBUG_TRACE("    Router[%d]: %s\n", net_if_get_by_iface(iface),
-		                  net_addr_ntop(AF_INET, &iface->config.ip.ipv4->gw, buf, sizeof(buf)));
-		LLNET_DEBUG_TRACE("Lease time[%d]: %u seconds\n", net_if_get_by_iface(iface), iface->config.dhcpv4.lease_time);
+		VEEPORT_LOGGER_LOG_DBG("interface configuration is:");
+		VEEPORT_LOGGER_LOG_DBG("   Address[%d]: %s", net_if_get_by_iface(iface),
+		                       net_addr_ntop(AF_INET, &iface->config.ip.ipv4->unicast[i].ipv4.address.in_addr, buf,
+		                                     sizeof(buf)));
+		VEEPORT_LOGGER_LOG_DBG("    Subnet[%d]: %s", net_if_get_by_iface(iface),
+		                       net_addr_ntop(AF_INET, &iface->config.ip.ipv4->unicast[i].netmask, buf, sizeof(buf)));
+		VEEPORT_LOGGER_LOG_DBG("    Router[%d]: %s", net_if_get_by_iface(iface),
+		                       net_addr_ntop(AF_INET, &iface->config.ip.ipv4->gw, buf, sizeof(buf)));
+		VEEPORT_LOGGER_LOG_DBG("Lease time[%d]: %u seconds", net_if_get_by_iface(iface),
+		                       iface->config.dhcpv4.lease_time);
 	}
 }
 
 void llnet_init_dhcp() {
-	LLNET_DEBUG_TRACE("LLNET initialization\n");
+	VEEPORT_LOGGER_LOG_DBG("LLNET initialization");
 
 	// Initialize callbacks.
 	net_mgmt_init_event_callback(&mgmt_cb, dhcpv4_client_callback, NET_EVENT_IPV4_ADDR_ADD);

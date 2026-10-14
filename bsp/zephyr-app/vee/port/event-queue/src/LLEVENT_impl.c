@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -23,6 +24,8 @@
 #include <LLEVENT_impl.h>
 #include <event_helper.h>
 #include <event_configuration.h>
+
+VEEPORT_LOGGER_DEFINE_MODULE(LLEVENT_LOG_MODULE)
 
 // -----------------------------------------------------------------------------
 // Macros and Defines
@@ -114,11 +117,7 @@ static jbyte read_one_byte(void) {
 	jbyte read_byte = JTRUE;
 	// If less than one byte available, throw a native IOException.
 	if (LLEVENT_IMPL_available() < sizeof(jbyte)) {
-		if (SNI_throwNativeIOException(EVENT_NOK, "No byte remaining in the extended data.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE("during EventDataReader reading: No byte remaining in the extended data.\n");
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No byte remaining in the extended data.");
 		read_byte = JFALSE;
 	}
 
@@ -137,11 +136,7 @@ static jbyte read_one_byte(void) {
 			// available.
 			OSAL_status_t res = OSAL_queue_fetch(&event_queue_handle, (void **)&buffer_extended_data, 0);
 			if (res != OSAL_OK) {
-				if (SNI_throwNativeIOException(EVENT_NOK, "No more data on the message queue.") == SNI_ERROR) {
-					LLEVENT_ERROR_TRACE("during EventDataReader reading: No more data on the message queue.\n");
-					LLEVENT_ERROR_TRACE(
-						"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-				}
+				VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No more data on the message queue.");
 				read_byte = JFALSE;
 			} else {
 				// Set the offset of the buffer to 0 -> 0 byte has been read.
@@ -192,12 +187,7 @@ static jshort read_two_bytes(void) {
 	jshort event_short = JTRUE;
 	// If less than 2 bytes available, throw a native IOException.
 	if (LLEVENT_IMPL_available() < sizeof(jshort)) {
-		if (SNI_throwNativeIOException(EVENT_NOK, "Less than two bytes remaining in the extended data.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE(
-				"during EventDataReader reading: Less than two bytes remaining in the extended data.\n");
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "Less than two bytes remaining in the extended data.");
 		event_short = JFALSE;
 	}
 
@@ -219,11 +209,7 @@ static jshort read_two_bytes(void) {
 			// available.
 			OSAL_status_t res = OSAL_queue_fetch(&event_queue_handle, (void **)&buffer_extended_data, 0);
 			if (res != OSAL_OK) {
-				if (SNI_throwNativeIOException(EVENT_NOK, "No more data on the message queue.") == SNI_ERROR) {
-					LLEVENT_ERROR_TRACE("during EventDataReader reading: No more data on the message queue.\n");
-					LLEVENT_ERROR_TRACE(
-						"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-				}
+				VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No more data on the message queue.");
 				event_short = JFALSE;
 			} else {
 				// Set the offset of the buffer to 0 -> 0 byte has been read.
@@ -276,13 +262,8 @@ static jint read_four_bytes(void) {
 	jint event_int = JTRUE;
 	// If less than 4 bytes available, throw a native IOException.
 	if (LLEVENT_IMPL_available() < sizeof(jint)) {
-		if (SNI_throwNativeIOException(EVENT_NOK,
-		                               "Less than four bytes remaining in the extended data.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE(
-				"ERROR during EventDataReader reading: Less than four bytes remaining in the extended data.\n");
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK,
+		                                              "Less than four bytes remaining in the extended data.");
 		event_int = JFALSE;
 	}
 
@@ -300,11 +281,7 @@ static jint read_four_bytes(void) {
 		// Fetch a message from the queue. Suspend the thread if no message available.
 		OSAL_status_t res = OSAL_queue_fetch(&event_queue_handle, (void **)&event_int, 0);
 		if (res != OSAL_OK) {
-			if (SNI_throwNativeIOException(EVENT_NOK, "No more data on the message queue.") == SNI_ERROR) {
-				LLEVENT_ERROR_TRACE("during EventDataReader reading: No more data on the message queue.\n");
-				LLEVENT_ERROR_TRACE(
-					"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-			}
+			VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No more data on the message queue.");
 			event_int = JFALSE;
 		} else {
 			// Increment the offset of the data read.
@@ -330,13 +307,8 @@ static jlong read_eight_bytes(void) {
 	// If less than 8 bytes available (or 4 bytes if the first par of the long value has been read), throw a native
 	// IOException.
 	if (LLEVENT_IMPL_available() < sizeof(jlong)) {
-		if (SNI_throwNativeIOException(EVENT_NOK,
-		                               "Less than eight bytes remaining in the extended data.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE(
-				"during EventDataReader reading: Less than eight bytes remaining in the extended data.\n");
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK,
+		                                              "Less than eight bytes remaining in the extended data.");
 		read_status = JFALSE;
 	}
 
@@ -364,11 +336,7 @@ static jlong read_eight_bytes(void) {
 		if (data_alignment != (uint8_t)1) {
 			OSAL_status_t res = OSAL_queue_fetch(&event_queue_handle, (void **)&event_value, 0);
 			if (res != OSAL_OK) {
-				if (SNI_throwNativeIOException(EVENT_NOK, "No more data on the message queue.") == SNI_ERROR) {
-					LLEVENT_ERROR_TRACE("during EventDataReader reading: No more data on the message queue.\n");
-					LLEVENT_ERROR_TRACE(
-						"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-				}
+				VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No more data on the message queue.");
 				read_status = JFALSE;
 			} else {
 				// Increment the offset of the data read.
@@ -382,11 +350,7 @@ static jlong read_eight_bytes(void) {
 			// If the first part of the long has not been read, read it and store it in a static variable.
 			OSAL_status_t res = OSAL_queue_fetch(&event_queue_handle, (void **)&event_value, 0);
 			if (res != OSAL_OK) {
-				if (SNI_throwNativeIOException(EVENT_NOK, "No more data on the message queue.") == SNI_ERROR) {
-					LLEVENT_ERROR_TRACE("during EventDataReader reading: No more data on the message queue.\n");
-					LLEVENT_ERROR_TRACE(
-						"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-				}
+				VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No more data on the message queue.");
 				read_status = JFALSE;
 			} else {
 				// Increment the offset of the data read.
@@ -402,11 +366,7 @@ static jlong read_eight_bytes(void) {
 				// Get the second part of the long. Suspend the thread if no message available.
 				OSAL_status_t res = OSAL_queue_fetch(&event_queue_handle, (void **)&event_value, 0);
 				if (res != OSAL_OK) {
-					if (SNI_throwNativeIOException(EVENT_NOK, "No more data on the message queue.") == SNI_ERROR) {
-						LLEVENT_ERROR_TRACE("during EventDataReader reading: No more data on the message queue.\n");
-						LLEVENT_ERROR_TRACE(
-							"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-					}
+					VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No more data on the message queue.");
 				} else {
 					// Increment the offset of the data read.
 					offset_extended_data_read += sizeof(jint);
@@ -431,20 +391,14 @@ static jlong read_eight_bytes(void) {
 void LLEVENT_IMPL_initialize(void) {
 	OSAL_status_t res = OSAL_queue_create((uint8_t *)event_queue_name, &event_queue_handle, event_queue);
 	if (res != OSAL_OK) {
-		LLEVENT_ERROR_TRACE("ERROR during EventQueue.getInstance(): Cannot create queue (%d)\n", res);
-		if (SNI_throwNativeIOException(EVENT_NOK, "Cannot create queue.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_LOGGER_LOG_ERR("EventQueue.getInstance(): Cannot create queue (%d)", res);
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "Cannot create queue.");
 	}
 
 	res = OSAL_mutex_create((uint8_t *)mutex_name, &mutex_send_event);
 	if (res != OSAL_OK) {
-		LLEVENT_ERROR_TRACE("ERROR during EventQueue.getInstance(): Cannot create mutex (%d)\n", res);
-		if (SNI_throwNativeIOException(EVENT_NOK, "Cannot create mutex.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_LOGGER_LOG_ERR("EventQueue.getInstance(): Cannot create mutex (%d)", res);
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "Cannot create mutex.");
 	}
 
 	event_queue_initialized = true;
@@ -472,29 +426,28 @@ bool LLEVENT_IMPL_offer_event(uint32_t type, uint32_t data) {
 		// Take the mutex before sending the event.
 		OSAL_status_t status = OSAL_mutex_take(&mutex_send_event, OSAL_INFINITE_TIME);
 		if (status != OSAL_OK) {
-			LLEVENT_ERROR_TRACE("during attempt to take the mutex ; status = 0x%x \n", status);
+			VEEPORT_LOGGER_LOG_ERR("failed to take the mutex, status = 0x%x", status);
 		}
 
 		// Send the event into the queue.
 		// cppcheck-suppress [misra-c2012-11.6]: conversion to void* necessary as we only send one integer.
 		status = OSAL_queue_post(&event_queue_handle, (void *)event_message);
 		if (status != OSAL_OK) {
-			LLEVENT_ERROR_TRACE("while trying to send an event in the EventQueue.\n");
+			VEEPORT_LOGGER_LOG_ERR("failed to send an event in the EventQueue");
 			offer_status = JFALSE;
 		}
 
 		// Free the mutex after sending the event.
 		status = OSAL_mutex_give(&mutex_send_event);
 		if (status != OSAL_OK) {
-			LLEVENT_ERROR_TRACE("during attempt to give the mutex ; status = 0x%x \n", status);
+			VEEPORT_LOGGER_LOG_ERR("failed to give the mutex, status = 0x%x", status);
 		}
 
 		// If a Java thread is waiting to read an event, notify it.
 		if (SNI_ERROR != waiting_receive_java_thread_id) {
 			if (SNI_ERROR == SNI_resumeJavaThread(waiting_receive_java_thread_id)) {
 				// Java thread ID is invalid.
-				LLEVENT_ERROR_TRACE(
-					"while trying to resume the EventQueue waiting thread: The Java Thread ID is invalid, can't resume the Event Queue waiting thread.\n");
+				VEEPORT_LOGGER_LOG_ERR("cannot resume the EventQueue waiting thread: the Java thread ID is invalid");
 				waiting_receive_java_thread_id = SNI_ERROR;
 			}
 		}
@@ -521,7 +474,7 @@ bool LLEVENT_IMPL_offer_extended_event(uint32_t type, const void *data, uint32_t
 		// Take the mutex before sending the extended event.
 		OSAL_status_t status = OSAL_mutex_take(&mutex_send_event, OSAL_INFINITE_TIME);
 		if (status != OSAL_OK) {
-			LLEVENT_ERROR_TRACE("during attempt to take the mutex ; status = 0x%x \n", status);
+			VEEPORT_LOGGER_LOG_ERR("failed to take the mutex, status = 0x%x", status);
 		}
 
 		// Send the first part of the event in the queue.
@@ -529,7 +482,7 @@ bool LLEVENT_IMPL_offer_extended_event(uint32_t type, const void *data, uint32_t
 			// cppcheck-suppress [misra-c2012-11.6]: conversion to void* necessary as we only send one integer.
 			OSAL_status_t res = OSAL_queue_post(&event_queue_handle, (void *)event_message);
 			if (res != OSAL_OK) {
-				LLEVENT_ERROR_TRACE("while trying to send an event in the EventQueue.\n");
+				VEEPORT_LOGGER_LOG_ERR("failed to send an event in the EventQueue");
 				offer_status = JFALSE;
 			}
 		}
@@ -539,7 +492,7 @@ bool LLEVENT_IMPL_offer_extended_event(uint32_t type, const void *data, uint32_t
 			for (int i = 0; i < data_length_int; i++) {
 				OSAL_status_t res = OSAL_queue_post(&event_queue_handle, (void *)event_data[i]);
 				if (res != OSAL_OK) {
-					LLEVENT_ERROR_TRACE("while trying to send an extended event in the EventQueue.\n");
+					VEEPORT_LOGGER_LOG_ERR("failed to send an extended event in the EventQueue");
 					offer_status = JFALSE;
 				}
 			}
@@ -548,15 +501,14 @@ bool LLEVENT_IMPL_offer_extended_event(uint32_t type, const void *data, uint32_t
 		// Free the mutex after sending the event.
 		status = OSAL_mutex_give(&mutex_send_event);
 		if (status != OSAL_OK) {
-			LLEVENT_ERROR_TRACE("during attempt to give the mutex ; status = 0x%x \n", status);
+			VEEPORT_LOGGER_LOG_ERR("failed to give the mutex, status = 0x%x", status);
 		}
 
 		// If a Java thread is waiting to read an event, notify it.
 		if (waiting_receive_java_thread_id != SNI_ERROR) {
 			if (SNI_resumeJavaThread(waiting_receive_java_thread_id) == SNI_ERROR) {
 				// Java thread ID is invalid.
-				LLEVENT_ERROR_TRACE(
-					"while trying to resume the EventQueue waiting thread: The Java Thread ID is invalid, can't resume the Event Queue waiting thread.\n");
+				VEEPORT_LOGGER_LOG_ERR("cannot resume the EventQueue waiting thread: the Java thread ID is invalid");
 				waiting_receive_java_thread_id = SNI_ERROR;
 			}
 		}
@@ -575,7 +527,7 @@ uint32_t LLEVENT_IMPL_wait_event(void) {
 	OSAL_status_t res = OSAL_queue_fetch(&event_queue_handle, (void **)&event_message, 0);
 	if (res != OSAL_OK) {
 		// OSAL will return OSAL_ERROR when the queue is empty
-		LLEVENT_ERROR_TRACE("event queue is empty\n");
+		VEEPORT_LOGGER_LOG_ERR("event queue is empty");
 	} else {
 		wait_status = JTRUE;
 	}
@@ -583,10 +535,10 @@ uint32_t LLEVENT_IMPL_wait_event(void) {
 	if (!wait_status) {
 		if (SNI_OK != SNI_suspendCurrentJavaThreadWithCallback(0, (SNI_callback)LLEVENT_IMPL_wait_event, NULL)) {
 			// This function is not called within the virtual machine task or an exception is pending.
-			LLEVENT_ERROR_TRACE("while trying to suspend EventQueue thread.\n");
-			LLEVENT_ERROR_TRACE(
-				"The Event Queue is not called within the virtual machine task or an exception is pending.\n");
-			LLEVENT_ERROR_TRACE("An event has been returned with id 0 and data 0.\n");
+			VEEPORT_LOGGER_LOG_ERR("failed to suspend the EventQueue thread");
+			VEEPORT_LOGGER_LOG_ERR(
+				"The Event Queue is not called within the virtual machine task or an exception is pending.");
+			VEEPORT_LOGGER_LOG_ERR("An event has been returned with id 0 and data 0.");
 			waiting_receive_java_thread_id = SNI_ERROR;
 			// Set the returned event to 0.
 			event_message = NULL;
@@ -609,7 +561,7 @@ void LLEVENT_IMPL_start_read_extended_data(uint32_t data_length) {
 void LLEVENT_IMPL_end_read_extended_data(void) {
 	// If there is still extended data inside event_queue, purge it.
 	if (LLEVENT_IMPL_skip_bytes(data_length_extended_data - offset_extended_data_read) == -1) {
-		LLEVENT_ERROR_TRACE("The Java listener did not finished properly. The message queue may not be purged.");
+		VEEPORT_LOGGER_LOG_ERR("The Java listener did not finished properly. The message queue may not be purged.");
 	}
 
 	// reset the data length and the offset.
@@ -667,11 +619,7 @@ jint LLEVENT_IMPL_read(uint8_t *b, uint32_t off, uint32_t len) {
 
 	// If not enough bytes available, throw a native IOException.
 	if (remaining_bytes < len) {
-		if (SNI_throwNativeIOException(EVENT_NOK, "No bytes remaining in the extended event.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE("during EventDataReader.read: No bytes remaining in the extended event.\n");
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "No bytes remaining in the extended event.");
 		read_status = JFALSE;
 	}
 
@@ -680,11 +628,7 @@ jint LLEVENT_IMPL_read(uint8_t *b, uint32_t off, uint32_t len) {
 	// factorize code.
 	// cppcheck-suppress [misra-c2012-18.4] : From sni.h with SNI_getArrayLength, used for configurable C library.
 	if (((off + len) > SNI_getArrayLength(b)) && (read_status == (jboolean)JTRUE)) {
-		if (SNI_throwNativeIOException(EVENT_NOK, "The buffer is too small to store the event data.") == SNI_ERROR) {
-			LLEVENT_ERROR_TRACE("during EventDataReader.read: The buffer is too small to store the event data.\n");
-			LLEVENT_ERROR_TRACE(
-				"This function is not called within the virtual machine task or if the current thread is suspended.\n");
-		}
+		VEEPORT_ERRORS_throw_caught_exception_message(EVENT_NOK, "The buffer is too small to store the event data.");
 		read_status = JFALSE;
 	}
 
@@ -743,8 +687,8 @@ jint LLEVENT_IMPL_skip_bytes(uint32_t n) {
 			// If an SNI exception occurs during reading, stop skipping and return -1.
 			if (SNI_isExceptionPending()) {
 				if (SNI_clearPendingException() == SNI_ERROR) {
-					LLEVENT_ERROR_TRACE("while clearing a pending exception during EventDataReader.skipBytes\n");
-					LLEVENT_ERROR_TRACE("The function is not called within the virtual machine task.\n");
+					VEEPORT_LOGGER_LOG_ERR("failed to clear a pending exception in EventDataReader.skipBytes");
+					VEEPORT_LOGGER_LOG_ERR("The function is not called within the virtual machine task.");
 				}
 				skip_status = EVENT_NOK;
 				break;

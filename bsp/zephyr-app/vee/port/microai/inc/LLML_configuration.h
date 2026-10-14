@@ -1,14 +1,11 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 #ifndef  LLML_CONFIGURATION_H
 #define  LLML_CONFIGURATION_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /**
  * @file
@@ -16,10 +13,19 @@ extern "C" {
  * @author MicroEJ Developer Team
  * @version 2.1.0
  */
+
+// Included before the "C" linkage block: the VEE Port configuration pulls in headers
+// that declare C++ templates and overloads, which cannot be given C linkage.
 #if defined(__has_include)
 #if __has_include(<veeport_configuration.h>)
 #include <veeport_configuration.h>
 #endif
+#endif
+
+#include "veeport_logger.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /**
@@ -35,19 +41,13 @@ extern "C" {
 #endif
 
 /**
- * Enable LLML debug trace
+ * @brief Log module shared by every source file of the MicroAI Abstraction Layer.
+ *
+ * One source file registers the module with VEEPORT_LOGGER_DEFINE_MODULE() and the
+ * others declare it with VEEPORT_LOGGER_DECLARE_MODULE(). The verbosity is set with
+ * CONFIG_MICROEJ_MICROAI_LOG_LEVEL.
  */
-// #define LLML_DEBUG
-
-#ifdef LLML_DEBUG
-
-#ifndef LLML_DEBUG_TRACE
-#define LLML_DEBUG_TRACE printf("[LLML] %s(%d) ", __func__, __LINE__); printf
-#endif
-
-#else
-#define LLML_DEBUG_TRACE(...) ((void)0)
-#endif
+#define LLML_LOG_MODULE microej_microai, VEEPORT_LOGGER_MODULE_LEVEL(MICROAI)
 
 #ifdef __cplusplus
 }

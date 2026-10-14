@@ -1,6 +1,8 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ *
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -16,7 +18,6 @@
 #include <zephyr/kernel.h>
 
 #include "LLMJVM_impl.h"
-#include "microej.h"
 #include "microej_time.h"
 
 /* Defines -------------------------------------------------------------------*/
@@ -132,7 +133,11 @@ int32_t LLMJVM_IMPL_scheduleRequest(int64_t absolute_time_milliseconds) {
 // cppcheck-suppress [misra-c2012-5.5]: MicroEJ specific
 int32_t LLMJVM_IMPL_idleVM(void) {
 	int32_t result;
-	if (k_sem_take(&LLMJVM_zephyr_semaphore, K_FOREVER) != 0) {
+	// Take the semaphore before the test rather than inside the controlling expression: the K_FOREVER
+	// macro expands to a designated-initializer compound literal that Cppcheck cannot type inside an
+	// if condition, which otherwise produces a spurious misra-config diagnostic.
+	int take_status = k_sem_take(&LLMJVM_zephyr_semaphore, K_FOREVER);
+	if (take_status != 0) {
 		result = LLMJVM_ERROR;
 	} else {
 		result = LLMJVM_OK;

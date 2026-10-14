@@ -1,6 +1,7 @@
 /*
  * Copyright 2026 MicroEJ Corp. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be found with this software.
+ * Build: 7E4D1F7C
  */
 
 /**
@@ -114,6 +115,7 @@
 #ifndef MICROEJ_ASYNC_WORKER_H
 #define MICROEJ_ASYNC_WORKER_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "sni.h"
 #include "osal.h"
@@ -171,16 +173,15 @@ typedef struct {
 	OSAL_queue_t *jobs_queue; // Structure containing address and size declared using OSAL_queue_declare() macro
 	MICROEJ_ASYNC_WORKER_job_t *free_jobs; // Linked list of free jobs
 	void *params; // Pointer to params array. Length of this array is job_count.
-	int32_t params_sizeof; // Size of the params union
-	int32_t waiting_threads_length; // Length of the waiting_threads array
+	size_t params_sizeof; // Size of the params union
+	size_t waiting_threads_length; // Length of the waiting_threads array
 	int32_t *waiting_threads; // Array of waiting threads (circular list)
-	uint16_t waiting_thread_offset; // Offset of the first waiting thread. If equals to free_waiting_thread_offset: no
-	                                // waiting
-	                                // thread
-	uint16_t free_waiting_thread_offset; // Offset of the first free slot in waiting_threads array
+	uint_fast16_t waiting_threads_head; // Index of the oldest waiting thread. If equals to waiting_threads_tail: no
+	                                    // waiting thread
+	uint_fast16_t waiting_threads_tail; // Index of the first free slot in waiting_threads array
 	OSAL_queue_handle_t jobs; // Queue of jobs scheduled for this worker (FIFO)
 	OSAL_task_handle_t task; // The task that executes this worker.
-	OSAL_mutex_handle_t mutex; // Mutex used for critical sections.
+	OSAL_mutex_handle_t mutex; // Mutex protecting the free jobs list and the waiting threads list.
 } MICROEJ_ASYNC_WORKER_handle_t;
 
 /**
@@ -207,8 +208,8 @@ typedef struct {
 			.params_sizeof = sizeof(_param_type),                                               \
 			.waiting_threads_length = _waiting_list_size + 1,                                   \
 			.waiting_threads = _name ## _waiting_threads,                                       \
-			.waiting_thread_offset = 0,                                                         \
-			.free_waiting_thread_offset = 0                                                     \
+			.waiting_threads_head = 0,                                                          \
+			.waiting_threads_tail = 0                                                           \
 		}
 
 /**
